@@ -134,3 +134,31 @@ def test_http_access_helper_keeps_query_and_header_secrets_out():
     assert "sensitive" not in dump
     assert "secret" not in dump
     assert diagnostic.auth_schemes == ["bearer"]
+
+
+def test_browser_policy_blocks_external_hosts_methods_and_action_paths(monkeypatch):
+    from siteaudit import browser
+    monkeypatch.setattr(browser, "validate_public_url", lambda url: url)
+    base = "https://example.org/"
+    assert browser.allowed_passive_request("https://example.org/page", "GET", base)
+    assert browser.allowed_passive_request("https://www.example.org/page", "GET", base)
+    assert not browser.allowed_passive_request("http://example.org/page", "GET", base)
+    assert not browser.allowed_passive_request("https://external.example/page", "GET", base)
+    assert not browser.allowed_passive_request("https://example.org/page", "POST", base)
+    assert not browser.allowed_passive_request("https://example.org/logout", "GET", base)
+
+
+def test_geo_distinguishes_browser_rendered_h1():
+    from siteaudit.agents.geo import GeoAgent
+    from siteaudit.models import Page, SiteSnapshot
+    page = Page(url="https://example.org/", status_code=200,
+                title="Example", description="An example", h1=[],
+                text="A public description of this site with useful text.", scripts=["main.js"])
+    snapshot = SiteSnapshot(input_url=page.url, final_url=page.url, pages=[page],
+                            robots_txt="User-agent: *\\nAllow: /",
+                            browser_evidence=[{"url": page.url, "rendered_h1_count": 1,
+                                               "rendered_text_chars": 500,
+                                               "rendered_h1_text": ["Example"]}])
+    findings = GeoAgent().run(snapshot)
+    assert any(f.rule_id == "GEO-H1-JS" for f in findings)
+    assert not any(f.rule_id == "GEO-H1" for f in findings)
