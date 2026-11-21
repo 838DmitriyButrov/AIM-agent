@@ -12,31 +12,25 @@ import re
 import socket
 import time
 from collections import deque
-from urllib.parse import urljoin, urlparse, urlunparse
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 import httpx
 from .extract import parse_page
 from .models import AccessDiagnostic, SiteSnapshot
 
-# Realistic modern Chrome on Windows — reduces simple bot filters while remaining honest about purpose.
-USER_AGENT = (
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 "
-    "SiteAuditAgents/0.2.3 (+authorized read-only website audit)"
-)
+# RFC 9309 product token must be stable and match the actual crawler identity.
+ROBOTS_TOKEN = "SiteAuditAgents"
+USER_AGENT = "SiteAuditAgents/0.2.4 (+https://github.com/838DmitriyButrov/AIM-agent; authorized read-only audit)"
 DEFAULT_HEADERS = {
     "User-Agent": USER_AGENT,
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br",
-    "Cache-Control": "no-cache",
-    "Pragma": "no-cache",
-    "Sec-Fetch-Dest": "document",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-User": "?1",
-    "Upgrade-Insecure-Requests": "1",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.7",
+    # Brotli is an optional HTTPX dependency; do not advertise it without decoding support.
+    "Accept-Encoding": "gzip, deflate",
 }
+ALLOWED_QUERY_KEYS = frozenset({"page", "p", "sort", "category", "brand", "filter", "sku", "color"})
+SAFE_QUERY_VALUE = re.compile(r"^[a-zA-Z0-9_.,:-]{1,80}$")
+
 MAX_RESPONSE_BYTES = 2_000_000
 BLOCKED_GET_PATHS = re.compile(r"/(?:logout|signout|delete|remove|unsubscribe|confirm|destroy|terminate)(?:/|$)", re.I)
 ACCESS_STATUSES = {401, 403, 429}
@@ -132,11 +126,20 @@ def validate_public_url(url: str) -> str:
 
 
 def strip_tracking(url: str) -> str:
+    """Preserve bounded, non-sensitive e-commerce parameters; drop tracking/unknown keys.
+
+    This is also a safe reporting URL: arbitrary authentication and search values are
+    never stored. Do not use this to claim full coverage of parameterized URLs.
+    """
     p = urlparse(url)
     path = posixpath.normpath(p.path or "/")
     if p.path.endswith("/") and path != "/":
         path += "/"
-    return urlunparse((p.scheme, p.netloc, path, "", "", ""))
+    params = sorted(
+        (key.lower(), value) for key, value in parse_qsl(p.query, keep_blank_values=False)
+        if key.lower() in ALLOWED_QUERY_KEYS and SAFE_QUERY_VALUE.fullmatch(value)
+    )[:6]
+    return urlunparse((p.scheme, p.netloc, path, "", urlencode(params), ""))
 
 
 class SiteCrawler:
@@ -146,21 +149,34 @@ class SiteCrawler:
         self.max_attempts = min(self.max_pages * 5, 200)
 
     def _headers(self) -> dict[str, str]:
-        headers = dict(DEFAULT_HEADERS)
-        auth = os.getenv("SITEAUDIT_AUTH", "").strip()
-        if auth:
-            headers["Authorization"] = auth if auth.lower().startswith(("bearer ", "basic ")) else f"Bearer {auth}"
-        return headers
+        """No global Authorization header: credentials must never go to metadata URLs."""
+        return dict(DEFAULT_HEADERS)
 
     def _read(self, client: httpx.Client, url: str, max_bytes: int = MAX_RESPONSE_BYTES,
-              allowed_hosts: set[str] | None = None) -> tuple[int, str, str, dict[str, str]]:
+              allowed_hosts: set[str] | None = None,
+              allow_auth: bool = False) -> tuple[int, str, str, dict[str, str]]:
         current = url
+        authorization = os.getenv("SITEAUDIT_AUTH", "").strip() if allow_auth else ""
+        authorization_host = os.getenv("SITEAUDIT_AUTH_HOST", "").strip().lower().rstrip(".")
+        if authorization and not authorization_host:
+            raise UnsafeTarget("SITEAUDIT_AUTH requires an explicit SITEAUDIT_AUTH_HOST")
         for _ in range(5):
             validate_public_url(current)
-            if allowed_hosts is not None and urlparse(current).hostname not in allowed_hosts:
+            requested_host = (urlparse(current).hostname or "").lower().rstrip(".")
+            if allowed_hosts is not None and requested_host not in allowed_hosts:
                 raise UnsafeTarget("Redirect outside approved host scope")
-            with client.stream("GET", current, follow_redirects=False) as res:
-                headers = {k.lower(): v for k, v in res.headers.items() if k.lower() in {"content-type", "x-robots-tag", "www-authenticate", "server", "cf-ray", "x-cache", "retry-after"}}
+            scoped_headers = {}
+            if authorization and requested_host == authorization_host:
+                scoped_headers["Authorization"] = (
+                    authorization if authorization.lower().startswith(("bearer ", "basic "))
+                    else f"Bearer {authorization}"
+                )
+            with client.stream("GET", current, follow_redirects=False,
+                               headers=scoped_headers) as res:
+                headers = {k.lower(): v for k, v in res.headers.items() if k.lower() in {
+                    "content-type", "x-robots-tag", "www-authenticate", "server",
+                    "cf-ray", "x-cache", "retry-after"
+                }}
                 if res.status_code in {301, 302, 303, 307, 308}:
                     location = res.headers.get("location")
                     if not location:
@@ -172,7 +188,9 @@ class SiteCrawler:
                     content.extend(chunk)
                     if len(content) > max_bytes:
                         raise ValueError("Response exceeds size limit")
-                return res.status_code, str(res.url), bytes(content).decode(res.encoding or "utf-8", errors="replace"), headers
+                return res.status_code, str(res.url), bytes(content).decode(
+                    res.encoding or "utf-8", errors="replace"), headers
+
         raise ValueError("Too many redirects")
 
     def crawl(self, target: str) -> SiteSnapshot:
@@ -241,11 +259,11 @@ class SiteCrawler:
                 if BLOCKED_GET_PATHS.search(parsed.path):
                     notes.append(f"Potentially state-changing GET not visited: {current}")
                     continue
-                if not robot.can_fetch(USER_AGENT, current):
+                if not robot.can_fetch(ROBOTS_TOKEN, current):
                     notes.append(f"Disallowed by robots.txt: {current}")
                     continue
                 try:
-                    status, final, body, headers = self._read(client, current, allowed_hosts=allowed_hosts)
+                    status, final, body, headers = self._read(client, current, allowed_hosts=allowed_hosts, allow_auth=True)
                     if urlparse(final).hostname not in allowed_hosts:
                         notes.append(f"Out-of-scope redirect skipped: {current}")
                         continue
