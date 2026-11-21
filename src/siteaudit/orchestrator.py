@@ -44,6 +44,31 @@ def run_audit(url: str, agents: list[str] | None = None, max_pages: int = 12,
             methods=["Network/DNS preflight only; robots.txt could not be retrieved"],
             disclaimers=DISCLAIMER,
         )
+    # HTTP access refusals are coverage limitations, never SEO/LEGAL defects.
+    if not snapshot.pages:
+        direct_access = [d for d in snapshot.access_diagnostics if d.phase in {"robots", "page"}]
+        if direct_access:
+            first = direct_access[0]
+            status = "rate_limited" if first.status_code == 429 else "blocked_http"
+        elif any("robots.txt" in note and "stopped conservatively" in note for note in snapshot.crawl_notes):
+            first = None
+            status = "blocked_robots"
+        else:
+            first = None
+            status = "no_pages"
+        return AuditReport(
+            target=url, agents=selected, pages_scanned=0, findings=[],
+            coverage={"scan_status": status, "sampled_pages": 0,
+                      "max_pages_requested": max_pages,
+                      "http_status": first.status_code if first else 0,
+                      "access_restrictions_detected": len(snapshot.access_diagnostics),
+                      "confirmed_ai_search_visibility": False,
+                      "verified_legal_compliance": False},
+            crawl_notes=snapshot.crawl_notes,
+            access_diagnostics=snapshot.access_diagnostics,
+            methods=["Read-only same-site HTTP crawl; no auditable HTML returned"],
+            disclaimers=DISCLAIMER,
+        )
     methods = ["Read-only same-site HTTP crawl", "Rule-based DOM analysis", "Versioned legal rule registry"]
     if with_browser and snapshot.pages:
         try:
@@ -69,8 +94,9 @@ def run_audit(url: str, agents: list[str] | None = None, max_pages: int = 12,
         findings.extend(ai_review(snapshot, selected, queries or []))
         methods.append("Opt-in external LLM review of selected PUBLIC page excerpts")
     coverage = {
-        'scan_status': 'completed_sample' if snapshot.pages else 'no_pages',
+        'scan_status': 'completed_sample_with_restrictions' if snapshot.access_diagnostics else 'completed_sample',
         'sampled_pages': len(snapshot.pages),
+        'access_restrictions_detected': len(snapshot.access_diagnostics),
         'max_pages_requested': max_pages,
         'crawl_limit_reached': snapshot.crawl_limit_reached,
         'browser_pages_probed': len(snapshot.browser_evidence),
@@ -79,4 +105,6 @@ def run_audit(url: str, agents: list[str] | None = None, max_pages: int = 12,
         'sitemap_declarations': len(snapshot.sitemap_declared),
     }
     return AuditReport(target=url, agents=selected, pages_scanned=len(snapshot.pages), findings=findings,
-                       coverage=coverage, crawl_notes=snapshot.crawl_notes, methods=methods, disclaimers=DISCLAIMER)
+                       coverage=coverage, crawl_notes=snapshot.crawl_notes,
+                       access_diagnostics=snapshot.access_diagnostics,
+                       methods=methods, disclaimers=DISCLAIMER)

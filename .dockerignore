@@ -6,7 +6,6 @@ __pycache__/
 .pytest_cache/
 reports/
 docs/
-tests/
 examples/
 build/
 build_dist/

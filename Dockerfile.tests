@@ -1,0 +1,10 @@
+# Explicit CI image: run regression tests without changing production runtime.
+FROM python:3.12-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+COPY pyproject.toml README.md ./
+COPY src ./src
+COPY tests ./tests
+RUN python -m pip install --no-cache-dir '.[test,api]'
+RUN python -m pytest -q
+CMD ["python", "-c", "print('All tests passed during build')"]

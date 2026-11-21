@@ -4,6 +4,7 @@ This is NOT SSRF-hardening sufficient for a public multitenant service: DNS rebi
 can occur between validation and the HTTP connection. Run in an isolated environment.
 """
 from __future__ import annotations
+import hashlib
 import ipaddress
 import posixpath
 import re
@@ -14,11 +15,52 @@ from urllib.parse import urljoin, urlparse, urlunparse
 from urllib.robotparser import RobotFileParser
 import httpx
 from .extract import parse_page
-from .models import SiteSnapshot
+from .models import AccessDiagnostic, SiteSnapshot
 
-USER_AGENT = "SiteAuditAgents/0.2.1 (+authorized read-only website audit)"
+USER_AGENT = "SiteAuditAgents/0.2.2 (+authorized read-only website audit)"
 MAX_RESPONSE_BYTES = 2_000_000
 BLOCKED_GET_PATHS = re.compile(r"/(?:logout|signout|delete|remove|unsubscribe|confirm|destroy|terminate)(?:/|$)", re.I)
+
+
+ACCESS_STATUSES = {401, 403, 429}
+
+
+def diagnose_http_access(phase: str, url: str, status: int, body: str,
+                         headers: dict[str, str]) -> AccessDiagnostic:
+    """Store access metadata only; never persist Set-Cookie, challenge pages or secrets."""
+    if status not in ACCESS_STATUSES:
+        raise ValueError("Only access restriction HTTP statuses are diagnosable")
+    auth_header = headers.get("www-authenticate", "")
+    match = re.match(r"\s*([A-Za-z][A-Za-z0-9_.-]{0,31})\b", auth_header)
+    auth_schemes = [match.group(1).lower()] if match else []
+    server = headers.get("server", "").lower()
+    if headers.get("cf-ray") or "cloudflare" in server:
+        server_hint = "cloudflare"
+    elif "akamai" in server:
+        server_hint = "akamai"
+    elif "nginx" in server:
+        server_hint = "nginx"
+    else:
+        server_hint = "unknown"
+    excerpt = body[:4096].lower()
+    indicators = [
+        name for name, pattern in (
+            ("captcha", r"captcha|hcaptcha|recaptcha"),
+            ("browser_challenge", r"checking your browser|verify you are human|провер(к|ьте).*браузер"),
+            ("access_denied_text", r"access denied|доступ запрещ"),
+            ("login_prompt", r"sign in|log in|войдите в"),
+        ) if re.search(pattern, excerpt)
+    ]
+    kind = {401: "authentication_or_policy", 403: "forbidden", 429: "rate_limited"}[status]
+    return AccessDiagnostic(
+        phase=phase, url=strip_tracking(url), status_code=status, response_class=kind,
+        content_type=headers.get("content-type", "").split(";", 1)[0][:80],
+        auth_schemes=auth_schemes, server_hint=server_hint,
+        has_cdn_request_id=bool(headers.get("cf-ray")),
+        response_body_bytes=len(body.encode("utf-8", errors="replace")),
+        body_sha256=hashlib.sha256(body.encode("utf-8", errors="replace")).hexdigest(),
+        challenge_indicators=indicators,
+    )
 
 
 class UnsafeTarget(ValueError):
@@ -95,7 +137,7 @@ class SiteCrawler:
             if allowed_hosts is not None and urlparse(current).hostname not in allowed_hosts:
                 raise UnsafeTarget("Redirect outside approved host scope")
             with client.stream("GET", current, follow_redirects=False) as res:
-                headers = {k.lower(): v for k, v in res.headers.items() if k.lower() in {"content-type", "x-robots-tag"}}
+                headers = {k.lower(): v for k, v in res.headers.items() if k.lower() in {"content-type", "x-robots-tag", "www-authenticate", "server", "cf-ray", "x-cache", "retry-after"}}
                 if res.status_code in {301, 302, 303, 307, 308}:
                     location = res.headers.get("location")
                     if not location:
@@ -117,6 +159,7 @@ class SiteCrawler:
         bare = original_host.removeprefix("www.")
         allowed_hosts = {bare, f"www.{bare}"} if original_host in {bare, f"www.{bare}"} else {original_host}
         notes: list[str] = []
+        access_diagnostics: list[AccessDiagnostic] = []
         pages = []
         seen: set[str] = set()
         queue = deque([start])
@@ -129,7 +172,7 @@ class SiteCrawler:
                           timeout=12, trust_env=False) as client:
             base = f"{urlparse(start).scheme}://{urlparse(start).netloc}"
             try:
-                status, _, content, _ = self._read(client, urljoin(base, "/robots.txt"),
+                status, robots_url, content, robots_headers = self._read(client, urljoin(base, "/robots.txt"),
                                                    max_bytes=512_000, allowed_hosts=allowed_hosts)
                 if status == 200:
                     robots_txt = content
@@ -142,15 +185,22 @@ class SiteCrawler:
                 elif status in {404, 410}:
                     robot.parse([])
                 else:
+                    if status in ACCESS_STATUSES:
+                        access_diagnostics.append(diagnose_http_access(
+                            "robots", robots_url, status, content, robots_headers))
                     return SiteSnapshot(input_url=target, final_url=start,
+                                        access_diagnostics=access_diagnostics,
                                         crawl_notes=[f"robots.txt returned HTTP {status}; stopped conservatively."])
             except (httpx.HTTPError, ValueError, UnsafeTarget, DNSResolutionError) as exc:
                 code = f"{exc.code}: " if isinstance(exc, DNSResolutionError) else ""
                 return SiteSnapshot(input_url=target, final_url=start,
                                     crawl_notes=[f"{code}robots.txt unavailable ({type(exc).__name__}: {exc}); stopped conservatively."])
             try:
-                sitemap_status, _, sitemap_body, _ = self._read(
+                sitemap_status, sitemap_url, sitemap_body, sitemap_headers = self._read(
                     client, urljoin(base, "/sitemap.xml"), max_bytes=1_000_000, allowed_hosts=allowed_hosts)
+                if sitemap_status in ACCESS_STATUSES:
+                    access_diagnostics.append(diagnose_http_access(
+                        "sitemap", sitemap_url, sitemap_status, sitemap_body, sitemap_headers))
                 sitemap_found = (sitemap_status == 200 and
                                  bool(re.search(r"<\s*(?:\w+:)?(?:urlset|sitemapindex)\b", sitemap_body[:1000], re.I)))
                 if sitemap_status == 200 and not sitemap_found:
@@ -178,6 +228,9 @@ class SiteCrawler:
                         notes.append(f"Out-of-scope redirect skipped: {current}")
                         continue
                     if status != 200:
+                        if status in ACCESS_STATUSES:
+                            access_diagnostics.append(diagnose_http_access(
+                                "page", final, status, body, headers))
                         notes.append(f"HTTP {status} at {current}")
                         continue
                     content_type = headers.get("content-type", "").lower()
@@ -203,4 +256,5 @@ class SiteCrawler:
         return SiteSnapshot(input_url=target, final_url=pages[0].url if pages else start, pages=pages,
                             robots_txt=robots_txt, sitemap_found=sitemap_found,
                             sitemap_status=sitemap_status, sitemap_declared=declared,
-                            crawl_limit_reached=limited, crawl_notes=notes)
+                            crawl_limit_reached=limited, crawl_notes=notes,
+                            access_diagnostics=access_diagnostics)

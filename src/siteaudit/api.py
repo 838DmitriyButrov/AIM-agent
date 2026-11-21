@@ -1,18 +1,22 @@
-"""LOCAL DEVELOPMENT API ONLY. Do NOT publicly expose without egress firewall and auth."""
+"""Private staging API: access token + fixed target allowlist; requires network SSRF isolation."""
 from __future__ import annotations
-from fastapi import FastAPI, HTTPException
+
+import hmac
+import os
+from urllib.parse import urlparse
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from .orchestrator import run_audit
 
-app = FastAPI(title="Site Audit Agents", version="0.2.1",
-              description="Development-only, read-only LEGAL and GEO audit API")
+app = FastAPI(title="Site Audit Agents", version="0.2.2",
+              description="Restricted LEGAL and GEO audit API; no public multitenant exposure")
 
 
 class ScanRequest(BaseModel):
     url: str
     agents: list[str] = Field(default_factory=lambda: ["legal", "geo"])
-    max_pages: int = Field(default=8, ge=1, le=25)
+    max_pages: int = Field(default=8, ge=1, le=8)
 
 
 @app.get("/health")
@@ -20,8 +24,30 @@ def health():
     return {"status": "ok", "agents_ready": ["legal", "geo"], "agents_reserved": ["ux"]}
 
 
+def require_private_access(request: Request, url: str) -> None:
+    """Fail closed without configuration; network-level SSRF protection still required."""
+    secret = os.getenv("AUDIT_TOKEN", "")
+    hosts = {h.strip().lower().rstrip(".") for h in
+             os.getenv("AUDIT_ALLOWED_HOSTS", "").split(",") if h.strip()}
+    if len(secret) < 32 or not hosts:
+        raise HTTPException(status_code=503,
+                            detail="Audit API is disabled: configure AUDIT_TOKEN and AUDIT_ALLOWED_HOSTS")
+    provided = request.headers.get("authorization", "")
+    prefix = "Bearer "
+    token = provided[len(prefix):] if provided.startswith(prefix) else ""
+    if not hmac.compare_digest(secret, token):
+        raise HTTPException(status_code=401, detail="Unauthorized",
+                            headers={"WWW-Authenticate": "Bearer"})
+    parsed = urlparse(url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.hostname.lower().rstrip(".") not in hosts:
+        raise HTTPException(status_code=403, detail="Host not approved for this staging audit")
+    if parsed.username or parsed.password or parsed.port not in {None, 443}:
+        raise HTTPException(status_code=403, detail="Credentials and nonstandard ports are forbidden")
+
+
 @app.post("/scan")
-def scan(req: ScanRequest):
+def scan(req: ScanRequest, request: Request):
+    require_private_access(request, req.url)
     try:
         report = run_audit(req.url, req.agents, req.max_pages)
         if report.coverage.get("scan_status") == "blocked_network":
