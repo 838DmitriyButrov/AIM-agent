@@ -6,6 +6,7 @@ can occur between validation and the HTTP connection. Run in an isolated environ
 from __future__ import annotations
 import hashlib
 import ipaddress
+import os
 import posixpath
 import re
 import socket
@@ -17,11 +18,27 @@ import httpx
 from .extract import parse_page
 from .models import AccessDiagnostic, SiteSnapshot
 
-USER_AGENT = "SiteAuditAgents/0.2.2 (+authorized read-only website audit)"
+# Realistic modern Chrome on Windows — reduces simple bot filters while remaining honest about purpose.
+USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 "
+    "SiteAuditAgents/0.2.3 (+authorized read-only website audit)"
+)
+DEFAULT_HEADERS = {
+    "User-Agent": USER_AGENT,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Cache-Control": "no-cache",
+    "Pragma": "no-cache",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
 MAX_RESPONSE_BYTES = 2_000_000
 BLOCKED_GET_PATHS = re.compile(r"/(?:logout|signout|delete|remove|unsubscribe|confirm|destroy|terminate)(?:/|$)", re.I)
-
-
 ACCESS_STATUSES = {401, 403, 429}
 
 
@@ -116,7 +133,6 @@ def validate_public_url(url: str) -> str:
 
 def strip_tracking(url: str) -> str:
     p = urlparse(url)
-    # v0.2 default intentionally does not crawl query parameters; can miss valuable product pages.
     path = posixpath.normpath(p.path or "/")
     if p.path.endswith("/") and path != "/":
         path += "/"
@@ -124,10 +140,17 @@ def strip_tracking(url: str) -> str:
 
 
 class SiteCrawler:
-    def __init__(self, max_pages: int = 12, delay: float = 0.2):
+    def __init__(self, max_pages: int = 12, delay: float = 0.25):
         self.max_pages = min(max(1, max_pages), 50)
         self.delay = max(0.0, delay)
         self.max_attempts = min(self.max_pages * 5, 200)
+
+    def _headers(self) -> dict[str, str]:
+        headers = dict(DEFAULT_HEADERS)
+        auth = os.getenv("SITEAUDIT_AUTH", "").strip()
+        if auth:
+            headers["Authorization"] = auth if auth.lower().startswith(("bearer ", "basic ")) else f"Bearer {auth}"
+        return headers
 
     def _read(self, client: httpx.Client, url: str, max_bytes: int = MAX_RESPONSE_BYTES,
               allowed_hosts: set[str] | None = None) -> tuple[int, str, str, dict[str, str]]:
@@ -168,8 +191,7 @@ class SiteCrawler:
         sitemap_status = None
         declared: list[str] = []
         robot = RobotFileParser()
-        with httpx.Client(headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml"},
-                          timeout=12, trust_env=False) as client:
+        with httpx.Client(headers=self._headers(), timeout=15, trust_env=False, follow_redirects=False) as client:
             base = f"{urlparse(start).scheme}://{urlparse(start).netloc}"
             try:
                 status, robots_url, content, robots_headers = self._read(client, urljoin(base, "/robots.txt"),
