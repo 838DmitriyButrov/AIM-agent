@@ -49,6 +49,7 @@ def main() -> int:
                 "pages_scanned": report.pages_scanned,
                 "coverage": report.coverage,
                 "notes": report.crawl_notes[:25],
+                "http_access": [d.model_dump(mode="json") for d in report.access_diagnostics[:12]],
                 "methods": report.methods,
                 "total_findings": len(report.findings),
                 "status_counts": dict(Counter(f.status for f in report.findings)),
