@@ -36,6 +36,22 @@ class Finding(BaseModel):
     needs_human_review: bool = False
 
 
+class AccessDiagnostic(BaseModel):
+    """Minimal HTTP access evidence. Never stores cookies, auth tokens or response HTML."""
+    phase: Literal["robots", "sitemap", "page"]
+    url: str
+    status_code: int
+    response_class: Literal["authentication_or_policy", "forbidden", "rate_limited"]
+    content_type: str = ""
+    auth_schemes: list[str] = Field(default_factory=list)
+    server_hint: str = "unknown"
+    has_cdn_request_id: bool = False
+    response_body_bytes: int = 0
+    body_sha256: str = ""
+    challenge_indicators: list[str] = Field(default_factory=list)
+    interpretation: str = "Причина отказа не установлена. Не является SEO/LEGAL-находкой."
+
+
 class FormInfo(BaseModel):
     action: str | None = None
     fields: list[dict[str, str]] = Field(default_factory=list)
@@ -77,6 +93,7 @@ class SiteSnapshot(BaseModel):
     sitemap_declared: list[str] = Field(default_factory=list)
     crawl_limit_reached: bool = False
     crawl_notes: list[str] = Field(default_factory=list)
+    access_diagnostics: list[AccessDiagnostic] = Field(default_factory=list)
     browser_evidence: list[dict] = Field(default_factory=list)
 
 
@@ -89,5 +106,6 @@ class AuditReport(BaseModel):
     findings: list[Finding]
     coverage: dict[str, str | int | bool] = Field(default_factory=dict)
     crawl_notes: list[str] = Field(default_factory=list)
+    access_diagnostics: list[AccessDiagnostic] = Field(default_factory=list)
     methods: list[str] = Field(default_factory=list)
     disclaimers: list[str] = Field(default_factory=list)
