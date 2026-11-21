@@ -31,7 +31,7 @@ def diagnose_http_access(phase: str, url: str, status: int, body: str,
     if status not in ACCESS_STATUSES:
         raise ValueError("Only access restriction HTTP statuses are diagnosable")
     auth_header = headers.get("www-authenticate", "")
-    match = re.match(r"\\s*([A-Za-z][A-Za-z0-9_.-]{0,31})\\b", auth_header)
+    match = re.match(r"\s*([A-Za-z][A-Za-z0-9_.-]{0,31})\b", auth_header)
     auth_schemes = [match.group(1).lower()] if match else []
     server = headers.get("server", "").lower()
     if headers.get("cf-ray") or "cloudflare" in server:
