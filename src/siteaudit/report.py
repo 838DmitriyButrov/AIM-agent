@@ -38,7 +38,7 @@ def to_markdown(report: AuditReport) -> str:
     # Preserve every record in JSON, but never label untested requirements as defects.
     reviewable = [item for item in report.findings if item.status != "not_tested"]
     unchecked = [item for item in report.findings if item.status == "not_tested"]
-    lines += ["", "## Наблюдения и потенциальные риски", "",
+    lines += ["", "## Находки (наблюдения и потенциальные риски)", "",
               "Эти записи не являются установленными нарушениями.", ""]
 
     for idx, f in enumerate(reviewable, 1):
