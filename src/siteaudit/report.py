@@ -18,6 +18,22 @@ def to_markdown(report: AuditReport) -> str:
     if report.coverage.get("scan_status") == "blocked_network":
         lines += ["", "**Сканирование не началось: сетевая/DNS-недоступность среды запуска.**", "",
                   "Это не является обнаруженной проблемой сайта и не даёт оснований делать вывод о его соответствии.", ""]
+    if report.coverage.get("scan_status") in {"blocked_http", "rate_limited", "blocked_robots"}:
+        lines += ["", "**Аудит не выполнен из-за ограничений доступа или robots.txt.**", "",
+                  "HTTP 401/403/429 относится к ответу, полученному нашим краулером; причина не установлена, "
+                  "и это не доказательство SEO-проблемы или правового нарушения.", ""]
+    if report.access_diagnostics:
+        lines += ["", "## HTTP-диагностика доступа (без cookies и токенов)", ""]
+        for item in report.access_diagnostics[:12]:
+            lines += [
+                f"- **HTTP {item.status_code}**, фаза `{item.phase}`: {item.url}",
+                f"  - Категория: {item.response_class}; Content-Type: {item.content_type or 'неизвестен'}",
+                f"  - Схемы WWW-Authenticate: {', '.join(item.auth_schemes) if item.auth_schemes else 'не указаны'}; "
+                f"признак сервера/CDN: {item.server_hint}; идентификатор CDN: {item.has_cdn_request_id}",
+                f"  - Признаки страницы ответа: {', '.join(item.challenge_indicators) if item.challenge_indicators else 'не определены'}; "
+                f"байтов: {item.response_body_bytes}; SHA-256: {item.body_sha256}",
+                "  - **Интерпретация:** причина отказа не подтверждена. Для дальнейшего доступа требуется разрешённый способ проверки.",
+            ]
     lines += ["", "## Находки", ""]
     for idx, f in enumerate(report.findings, 1):
         lines += [f"### {idx}. {f.title}",
