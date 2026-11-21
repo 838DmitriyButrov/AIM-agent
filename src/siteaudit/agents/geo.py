@@ -57,8 +57,6 @@ class GeoAgent:
                 "high", snapshot.input_url, "not_tested", "high", "Проверить robots.txt, сеть и доступность сайта.", evidence_level="insufficient")
             return findings
 
-        # ... (rest of the method remains the same as previous version, only terms() changed)
-        # For brevity in this commit the full method body is preserved from v0.2.2 with the improved terms().
         if snapshot.sitemap_found is False and not snapshot.sitemap_declared:
             add("GEO-SITEMAP", "Не обнаружена карта сайта по стандартному адресу или в robots.txt",
                 "По адресу /sitemap.xml не найдена XML-карта; в robots.txt нет директив Sitemap. "
