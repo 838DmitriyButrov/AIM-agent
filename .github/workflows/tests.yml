@@ -1,18 +1,37 @@
-name: Python checks
+name: Python checks (four independent passes)
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   test:
+    name: ${{ matrix.id }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {id: "pass-1-py311", python: "3.11", seed: "11"}
+          - {id: "pass-2-py312", python: "3.12", seed: "22"}
+          - {id: "pass-3-py313", python: "3.13", seed: "33"}
+          - {id: "pass-4-py312", python: "3.12", seed: "44"}
+    env:
+      PYTHONHASHSEED: ${{ matrix.seed }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-      - run: python -m pip install -e '.[test,api]'
-      - run: python -m pytest -q
+          python-version: ${{ matrix.python }}
+      - name: Install project and test dependencies
+        run: python -m pip install -e '.[test,api]'
+      - name: Full automated suite
+        run: python -m pytest -q
+      - name: Compile all Python modules
+        run: python -m compileall -q src tests
+      - name: Validate installed dependencies
+        run: python -m pip check
