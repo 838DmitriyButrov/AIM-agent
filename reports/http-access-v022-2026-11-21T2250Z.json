@@ -1,0 +1,287 @@
+{
+  "run_utc": "2026-11-21T22:50Z",
+  "source_commit": "99503c5272781a96e72d759cc734010d890b4a2a",
+  "version": "0.2.2",
+  "execution": "Railway, authorized read-only GET, 3 pages per site, no browser/AI",
+  "sites": [
+    {
+      "site": "lenta",
+      "url": "https://lenta.com/",
+      "version": "0.2.2",
+      "scanned_at_utc": "2026-11-21T22:50:56.235769+00:00",
+      "pages_scanned": 0,
+      "coverage": {
+        "scan_status": "blocked_http",
+        "sampled_pages": 0,
+        "max_pages_requested": 3,
+        "http_status": 401,
+        "access_restrictions_detected": 1,
+        "confirmed_ai_search_visibility": false,
+        "verified_legal_compliance": false
+      },
+      "notes": [
+        "Unable to check /sitemap.xml.",
+        "HTTP 401 at https://lenta.com/"
+      ],
+      "http_access": [
+        {
+          "phase": "page",
+          "url": "https://lenta.com/",
+          "status_code": 401,
+          "response_class": "authentication_or_policy",
+          "content_type": "text/html",
+          "auth_schemes": [],
+          "server_hint": "unknown",
+          "has_cdn_request_id": false,
+          "response_body_bytes": 265,
+          "body_sha256": "d345b3c04d0fcf410b83391892338e6c12b2e14bcfed019b1fb7aa43fedde5ed",
+          "challenge_indicators": [],
+          "interpretation": "Причина отказа не установлена. Не является SEO/LEGAL-находкой."
+        }
+      ],
+      "methods": [
+        "Read-only same-site HTTP crawl; no auditable HTML returned"
+      ],
+      "total_findings": 0,
+      "status_counts": {},
+      "agent_counts": {},
+      "findings": []
+    },
+    {
+      "site": "metro",
+      "url": "https://metro-cc.ru/",
+      "version": "0.2.2",
+      "scanned_at_utc": "2026-11-21T22:51:06.635503+00:00",
+      "pages_scanned": 3,
+      "coverage": {
+        "scan_status": "completed_sample",
+        "sampled_pages": 3,
+        "access_restrictions_detected": 0,
+        "max_pages_requested": 3,
+        "crawl_limit_reached": true,
+        "browser_pages_probed": 0,
+        "confirmed_ai_search_visibility": false,
+        "verified_legal_compliance": false,
+        "sitemap_declarations": 1
+      },
+      "notes": [
+        "Limited sample: fetched 3 pages, tried 3 URLs. Absence != compliance."
+      ],
+      "http_access": [],
+      "methods": [
+        "Read-only same-site HTTP crawl",
+        "Rule-based DOM analysis",
+        "Versioned legal rule registry"
+      ],
+      "total_findings": 9,
+      "status_counts": {
+        "not_tested": 8,
+        "observation": 1
+      },
+      "agent_counts": {
+        "legal": 7,
+        "geo": 2
+      },
+      "findings": [
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-PD-POLICY",
+          "title": "Ссылка на политику найдена, но документ не проверен",
+          "status": "not_tested",
+          "severity": "info",
+          "confidence": "high",
+          "applicability": "conditional",
+          "explanation": "В исходном HTML присутствует ссылка на политику; её содержимое и HTTP-доступность не подтверждены в этом обходе.",
+          "action": "Открыть связанный документ и проверить актуальность и применимость.",
+          "references": [
+            "https://www.consultant.ru/document/cons_doc_LAW_61801/eeeebe22bf738fd65bb66b95cc278911ae2525ee/"
+          ],
+          "evidence": [
+            {
+              "page": "https://metro-cc.ru/about/feedback",
+              "kind": "DOM",
+              "detail": "В исходном HTML присутствует ссылка на политику; её содержимое и HTTP-доступность не подтверждены в этом обходе."
+            }
+          ]
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-PD-LOCALIZATION",
+          "title": "Локализация и инфраструктура ПДн",
+          "status": "not_tested",
+          "severity": "info",
+          "confidence": "high",
+          "applicability": "unknown",
+          "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Data flow map, storage location and processing infrastructure.",
+          "action": "Проверить область применимости и собрать документы от оператора сайта.",
+          "references": [
+            "https://www.consultant.ru/document/cons_doc_LAW_61801/cbf4e15b7c330f9372e876cdf2bc928bad7950ef/"
+          ],
+          "evidence": []
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-PD-SECURITY",
+          "title": "Внутренние меры защиты ПДн",
+          "status": "not_tested",
+          "severity": "info",
+          "confidence": "high",
+          "applicability": "unknown",
+          "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Security controls, access policies, data retention and incident procedures.",
+          "action": "Проверить область применимости и собрать документы от оператора сайта.",
+          "references": [
+            "https://www.consultant.ru/document/cons_doc_LAW_61801/ca9e5658710519f09ab2fdb8196fcb3eb024a051/"
+          ],
+          "evidence": []
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-PD-RKN",
+          "title": "Уведомление оператора в Роскомнадзор",
+          "status": "not_tested",
+          "severity": "info",
+          "confidence": "high",
+          "applicability": "unknown",
+          "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Resolve legal entity and current status in RKN registry, review exceptions.",
+          "action": "Проверить область применимости и собрать документы от оператора сайта.",
+          "references": [
+            "https://www.consultant.ru/document/cons_doc_LAW_61801/"
+          ],
+          "evidence": []
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-KKT",
+          "title": "Чеки и расчёты",
+          "status": "not_tested",
+          "severity": "info",
+          "confidence": "high",
+          "applicability": "unknown",
+          "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Settlement model, receipt delivery, exceptions and payment provider configuration.",
+          "action": "Проверить область применимости и собрать документы от оператора сайта.",
+          "references": [
+            "https://www.consultant.ru/document/cons_doc_LAW_42359/"
+          ],
+          "evidence": []
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-LANGUAGE",
+          "title": "Языковые требования в потребительских интерфейсах",
+          "status": "not_tested",
+          "severity": "info",
+          "confidence": "high",
+          "applicability": "unknown",
+          "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Check trademarks, product names, audience and required translation.",
+          "action": "Проверить область применимости и собрать документы от оператора сайта.",
+          "references": [
+            "https://www.consultant.ru/document/cons_doc_LAW_305/"
+          ],
+          "evidence": []
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-AD-MARKING",
+          "title": "Квалификация и маркировка интернет-рекламы",
+          "status": "not_tested",
+          "severity": "info",
+          "confidence": "high",
+          "applicability": "unknown",
+          "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Is the material advertising or information about own business? Is this ad subject to labeling and registration requirements?",
+          "action": "Проверить область применимости и собрать документы от оператора сайта.",
+          "references": [
+            "https://www.consultant.ru/document/cons_doc_LAW_58968/2c4537e4796f6ff8b2736ed1b0d4fef08e14458e/"
+          ],
+          "evidence": []
+        },
+        {
+          "agent": "geo",
+          "rule_id": "GEO-H1",
+          "title": "В исходном HTML отсутствует H1",
+          "status": "observation",
+          "severity": "low",
+          "confidence": "high",
+          "applicability": "conditional",
+          "explanation": "Отсутствует заголовок H1 в статическом HTML; сам по себе этот признак не подтверждает низкую видимость.",
+          "action": "Проверить структуру отрисованной страницы.",
+          "references": [
+            "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
+            "https://yandex.ru/support/webmaster/ru/epos"
+          ],
+          "evidence": [
+            {
+              "page": "https://metro-cc.ru/",
+              "kind": "DOM",
+              "detail": "Отсутствует заголовок H1 в статическом HTML; сам по себе этот признак не подтверждает низкую видимость."
+            }
+          ]
+        },
+        {
+          "agent": "geo",
+          "rule_id": "GEO-AI-VISIBILITY",
+          "title": "Фактическая видимость в ответах ИИ не измерена",
+          "status": "not_tested",
+          "severity": "info",
+          "confidence": "high",
+          "applicability": "conditional",
+          "explanation": "Аудит HTML не измеряет цитирования в Алисе AI, Google AI или ChatGPT. Для Алисы AI доступен отчёт Вебмастера для подтверждённых сайтов; методика оценки должна учитывать изменения набора запросов и период измерения.",
+          "action": "Подключить Вебмастер, согласовать целевые запросы и базовый период мониторинга.",
+          "references": [
+            "https://yandex.ru/support/webmaster/ru/service/alice-answers",
+            "https://developers.google.com/search/docs/appearance/ai-features"
+          ],
+          "evidence": [
+            {
+              "page": "https://metro-cc.ru/",
+              "kind": "external_configuration",
+              "detail": "Аудит HTML не измеряет цитирования в Алисе AI, Google AI или ChatGPT. Для Алисы AI доступен отчёт Вебмастера для подтверждённых сайтов; методика оценки должна учитывать изменения н"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "site": "auchan",
+      "url": "https://www.auchan.ru/",
+      "version": "0.2.2",
+      "scanned_at_utc": "2026-11-21T22:51:09.920242+00:00",
+      "pages_scanned": 0,
+      "coverage": {
+        "scan_status": "blocked_http",
+        "sampled_pages": 0,
+        "max_pages_requested": 3,
+        "http_status": 401,
+        "access_restrictions_detected": 1,
+        "confirmed_ai_search_visibility": false,
+        "verified_legal_compliance": false
+      },
+      "notes": [
+        "HTTP 401 at https://www.auchan.ru/"
+      ],
+      "http_access": [
+        {
+          "phase": "page",
+          "url": "https://www.auchan.ru/",
+          "status_code": 401,
+          "response_class": "authentication_or_policy",
+          "content_type": "text/html",
+          "auth_schemes": [],
+          "server_hint": "unknown",
+          "has_cdn_request_id": false,
+          "response_body_bytes": 265,
+          "body_sha256": "d345b3c04d0fcf410b83391892338e6c12b2e14bcfed019b1fb7aa43fedde5ed",
+          "challenge_indicators": [],
+          "interpretation": "Причина отказа не установлена. Не является SEO/LEGAL-находкой."
+        }
+      ],
+      "methods": [
+        "Read-only same-site HTTP crawl; no auditable HTML returned"
+      ],
+      "total_findings": 0,
+      "status_counts": {},
+      "agent_counts": {},
+      "findings": []
+    }
+  ],
+  "disclaimer": "HTTP 401 is a client-specific access refusal. Do not infer a site legal/SEO violation or actual AI search visibility."
+}
