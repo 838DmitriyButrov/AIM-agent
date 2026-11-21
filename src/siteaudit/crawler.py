@@ -17,7 +17,7 @@ import httpx
 from .extract import parse_page
 from .models import AccessDiagnostic, SiteSnapshot
 
-USER_AGENT = "SiteAuditAgents/0.2.1 (+authorized read-only website audit)"
+USER_AGENT = "SiteAuditAgents/0.2.2 (+authorized read-only website audit)"
 MAX_RESPONSE_BYTES = 2_000_000
 BLOCKED_GET_PATHS = re.compile(r"/(?:logout|signout|delete|remove|unsubscribe|confirm|destroy|terminate)(?:/|$)", re.I)
 
