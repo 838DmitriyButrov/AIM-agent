@@ -50,7 +50,7 @@ def run_audit(url: str, agents: list[str] | None = None, max_pages: int = 12,
         if direct_access:
             first = direct_access[0]
             status = "rate_limited" if first.status_code == 429 else "blocked_http"
-        elif any("robots.txt" in note and "stopped conservatively" in note for note in snapshot.crawl_notes):
+        elif any(("robots.txt" in note and "stopped conservatively" in note) or note.startswith("Disallowed by robots.txt:") for note in snapshot.crawl_notes):
             first = None
             status = "blocked_robots"
         else:

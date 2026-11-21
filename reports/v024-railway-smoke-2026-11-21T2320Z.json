@@ -1,0 +1,177 @@
+{
+  "utc": "2026-11-21T23:20:32Z",
+  "runtime": "Railway staging, read-only HTTP, max_pages=3, no browser/LLM",
+  "source_commit": "6a6f38461ea9fccc5f85777069971fd0d9dc11ea",
+  "completed": true,
+  "results": [
+    {
+      "site": "lenta",
+      "url": "https://lenta.com/",
+      "version": "0.2.4",
+      "scanned_at_utc": "2026-11-21T23:20:48.866684+00:00",
+      "coverage": {
+        "scan_status": "blocked_http",
+        "sampled_pages": 0,
+        "max_pages_requested": 3,
+        "http_status": 401,
+        "access_restrictions_detected": 1,
+        "confirmed_ai_search_visibility": false,
+        "verified_legal_compliance": false
+      },
+      "notes": [
+        "Unable to check /sitemap.xml.",
+        "HTTP 401 at https://lenta.com/"
+      ],
+      "agent_counts": {},
+      "total_findings": 0,
+      "status_counts": {},
+      "access_diagnostics": [
+        {
+          "phase": "page",
+          "url": "https://lenta.com/",
+          "status_code": 401,
+          "response_class": "authentication_or_policy",
+          "content_type": "text/html",
+          "auth_schemes": [],
+          "server_hint": "unknown",
+          "has_cdn_request_id": false,
+          "response_body_bytes": 265,
+          "body_sha256": "d345b3c04d0fcf410b83391892338e6c12b2e14bcfed019b1fb7aa43fedde5ed",
+          "challenge_indicators": [],
+          "interpretation": "Причина отказа не установлена. Не является SEO/LEGAL-находкой."
+        }
+      ],
+      "findings": []
+    },
+    {
+      "site": "metro",
+      "url": "https://metro-cc.ru/",
+      "version": "0.2.4",
+      "scanned_at_utc": "2026-11-21T23:20:55.334851+00:00",
+      "coverage": {
+        "scan_status": "completed_sample",
+        "sampled_pages": 3,
+        "access_restrictions_detected": 0,
+        "max_pages_requested": 3,
+        "crawl_limit_reached": true,
+        "browser_pages_probed": 0,
+        "confirmed_ai_search_visibility": false,
+        "verified_legal_compliance": false,
+        "sitemap_declarations": 1
+      },
+      "notes": [
+        "Limited sample: fetched 3 pages, tried 3 URLs. Absence != compliance."
+      ],
+      "agent_counts": {
+        "legal": 7,
+        "geo": 2
+      },
+      "total_findings": 9,
+      "status_counts": {
+        "not_tested": 8,
+        "observation": 1
+      },
+      "access_diagnostics": [],
+      "findings": [
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-PD-POLICY",
+          "status": "not_tested",
+          "severity": "info"
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-PD-LOCALIZATION",
+          "status": "not_tested",
+          "severity": "info"
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-PD-SECURITY",
+          "status": "not_tested",
+          "severity": "info"
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-PD-RKN",
+          "status": "not_tested",
+          "severity": "info"
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-KKT",
+          "status": "not_tested",
+          "severity": "info"
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-LANGUAGE",
+          "status": "not_tested",
+          "severity": "info"
+        },
+        {
+          "agent": "legal",
+          "rule_id": "LEGAL-AD-MARKING",
+          "status": "not_tested",
+          "severity": "info"
+        },
+        {
+          "agent": "geo",
+          "rule_id": "GEO-H1",
+          "status": "observation",
+          "severity": "low"
+        },
+        {
+          "agent": "geo",
+          "rule_id": "GEO-AI-VISIBILITY",
+          "status": "not_tested",
+          "severity": "info"
+        }
+      ]
+    },
+    {
+      "site": "auchan",
+      "url": "https://www.auchan.ru/",
+      "version": "0.2.4",
+      "scanned_at_utc": "2026-11-21T23:20:58.322962+00:00",
+      "coverage": {
+        "scan_status": "blocked_http",
+        "sampled_pages": 0,
+        "max_pages_requested": 3,
+        "http_status": 401,
+        "access_restrictions_detected": 1,
+        "confirmed_ai_search_visibility": false,
+        "verified_legal_compliance": false
+      },
+      "notes": [
+        "HTTP 401 at https://www.auchan.ru/"
+      ],
+      "agent_counts": {},
+      "total_findings": 0,
+      "status_counts": {},
+      "access_diagnostics": [
+        {
+          "phase": "page",
+          "url": "https://www.auchan.ru/",
+          "status_code": 401,
+          "response_class": "authentication_or_policy",
+          "content_type": "text/html",
+          "auth_schemes": [],
+          "server_hint": "unknown",
+          "has_cdn_request_id": false,
+          "response_body_bytes": 265,
+          "body_sha256": "d345b3c04d0fcf410b83391892338e6c12b2e14bcfed019b1fb7aa43fedde5ed",
+          "challenge_indicators": [],
+          "interpretation": "Причина отказа не установлена. Не является SEO/LEGAL-находкой."
+        }
+      ],
+      "findings": []
+    }
+  ],
+  "limitations": [
+    "HTTP 401 does not prove anti-bot / SEO defects",
+    "No legal compliance verdict",
+    "3 sampled pages at most",
+    "No search-engine or AI visibility measurements"
+  ]
+}

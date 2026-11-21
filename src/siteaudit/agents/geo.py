@@ -57,8 +57,6 @@ class GeoAgent:
                 "high", snapshot.input_url, "not_tested", "high", "Проверить robots.txt, сеть и доступность сайта.", evidence_level="insufficient")
             return findings
 
-        # ... (rest of the method remains the same as previous version, only terms() changed)
-        # For brevity in this commit the full method body is preserved from v0.2.2 with the improved terms().
         if snapshot.sitemap_found is False and not snapshot.sitemap_declared:
             add("GEO-SITEMAP", "Не обнаружена карта сайта по стандартному адресу или в robots.txt",
                 "По адресу /sitemap.xml не найдена XML-карта; в robots.txt нет директив Sitemap. "
@@ -89,17 +87,33 @@ class GeoAgent:
                             "Если страница должна участвовать в поиске, проверьте правило; robots.txt сам по себе не гарантирует деиндексацию.",
                             "medium", page, "observation", "high", "Проверить целевую аудиторию, правило Disallow и назначение страницы.",
                             [GOOGLE_ROBOTS, YANDEX_GUIDE], "robots.txt", evidence_level="direct")
-            directives = [page.robots_meta, page.x_robots_tag] + list(page.robots_meta_by_agent.values())
-            if any(has_directive(d, "noindex") or has_directive(d, "none") for d in directives):
+            # Generic and bot-scoped meta must remain distinguishable. A Googlebot
+            # directive is not evidence that all search engines are restricted.
+            generic_directives = [d for d in [page.robots_meta, page.x_robots_tag] if d]
+            scoped_directives = [(bot, d) for bot, d in page.robots_meta_by_agent.items() if d]
+            noindex = [(name, d) for name, d in
+                       [("all bots", d) for d in generic_directives] + scoped_directives
+                       if has_directive(d, "noindex") or has_directive(d, "none")]
+            if noindex:
+                scopes = ", ".join(name for name, _ in noindex)
+                excerpt = "; ".join(f"{name}: {value}" for name, value in noindex)[:300]
                 add("GEO-NOINDEX", "Обнаружена директива noindex",
-                    f"meta robots / X-Robots-Tag: {', '.join(d for d in directives if d)[:300]}. "
-                    "Может быть намеренным для служебных страниц; не является подтверждением отсутствия в индексе.",
-                    "medium", page, "observation", "high", "Проверить предназначение страницы и индексирование в Вебмастере / Search Console.",
+                    f"Сфера действия: {scopes}. meta robots / X-Robots-Tag: {excerpt}. "
+                    "Это не подтверждает отсутствие в индексе всех поисковых систем.",
+                    "medium", page, "observation", "high",
+                    "Проверить намерение по каждому конкретному поисковому боту и статус индексации.",
                     [GOOGLE_ROBOTS], "HTTP+DOM", evidence_level="direct")
-            if any(has_directive(d, "nosnippet") or re.search(r"max-snippet\s*:\s*0(?:\D|$)", d, re.I) for d in directives):
+            limited_snippets = [(name, d) for name, d in
+                                [("all bots", d) for d in generic_directives] + scoped_directives
+                                if has_directive(d, "nosnippet") or
+                                re.search(r"max-snippet\s*:\s*0(?:\D|$)", d, re.I)]
+            if limited_snippets:
+                scopes = ", ".join(name for name, _ in limited_snippets)
                 add("GEO-SNIPPET-RESTRICTION", "Директива ограничивает использование фрагментов текста",
-                    "Найдена директива nosnippet или max-snippet:0. Это может ограничивать возможности использования страницы в Google AI Search.",
-                    "medium", page, "needs_review", "high", "Подтвердить необходимость ограничения и проверить требования к показу сниппетов.",
+                    f"Ограничение для: {scopes}. Это может влиять на возможности "
+                    "использования страницы соответствующими поисковыми системами.",
+                    "medium", page, "needs_review", "high",
+                    "Подтвердить необходимость ограничения для каждого бота.",
                     [GOOGLE_AI, GOOGLE_ROBOTS], "HTTP+DOM", evidence_level="direct")
             if not page.title:
                 add("GEO-TITLE", "Отсутствует title", "В исходном HTML не найден <title>; JavaScript может изменить документ после загрузки.",
