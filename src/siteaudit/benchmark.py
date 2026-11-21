@@ -5,6 +5,7 @@ Do not claim that an inaccessible site passed any audit.
 """
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from datetime import datetime, timezone
@@ -20,15 +21,23 @@ SITES = {
 def emit(kind: str, payload: dict) -> None:
     print(kind + " " + json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str), flush=True)
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--site", choices=SITES, action="append",
+                        help="Select a retailer. Repeat to select several. Defaults to all.")
+    parser.add_argument("--max-pages", type=int, choices=range(1, 51), metavar="1-50",
+                        default=3, help="Maximum HTML pages per site (default: 3).")
+    args = parser.parse_args(argv)
+    sites = dict.fromkeys(args.site or SITES)
     emit("BENCHMARK_START", {"utc": datetime.now(timezone.utc).isoformat(),
-                            "sites": list(SITES), "max_pages_per_site": 3,
+                            "sites": list(sites), "max_pages_per_site": args.max_pages,
                             "agents": ["legal", "geo"], "browser": False, "ai": False,
                             "read_only": True})
-    for name, url in SITES.items():
+    for name in sites:
+        url = SITES[name]
         emit("SCAN_START", {"site": name, "url": url})
         try:
-            report = run_audit(url, agents=["legal", "geo"], max_pages=3)
+            report = run_audit(url, agents=["legal", "geo"], max_pages=args.max_pages)
             fields = []
             for finding in report.findings[:60]:
                 fields.append({
