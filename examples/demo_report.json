@@ -1,0 +1,376 @@
+{
+  "scanned_at_utc": "2026-11-21T21:47:07.908792Z",
+  "version": "0.2.0",
+  "target": "https://example.org/demo",
+  "agents": [
+    "legal",
+    "geo"
+  ],
+  "pages_scanned": 1,
+  "findings": [
+    {
+      "id": "LEGAL-PD-POLICY-c42f6b6ddb4b",
+      "agent": "legal",
+      "rule_id": "LEGAL-PD-POLICY",
+      "title": "В месте сбора данных не обнаружена ссылка на политику",
+      "explanation": "Форма потенциально собирает ПДн, но в исходном HTML этой страницы не обнаружена ссылка на политику. Ссылка может добавляться через JavaScript либо документ может быть доступен иным способом; это не подтверждённое нарушение.",
+      "severity": "medium",
+      "status": "needs_review",
+      "confidence": "medium",
+      "applicability": "conditional",
+      "evidence_level": "indicative",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "Форма потенциально собирает ПДн, но в исходном HTML этой страницы не обнаружена ссылка на политику. Ссылка может добавляться через JavaScript либо документ может быть доступен иным способом; это не подтверждённое нарушение.",
+          "selector": "form:nth-of-type(1)",
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://www.consultant.ru/document/cons_doc_LAW_61801/eeeebe22bf738fd65bb66b95cc278911ae2525ee/"
+      ],
+      "action": "Проверить фактическую доступность политики на странице сбора данных, включая отрисованную версию.",
+      "needs_human_review": true
+    },
+    {
+      "id": "LEGAL-PD-CONSENT-1491e9dfef42",
+      "agent": "legal",
+      "rule_id": "LEGAL-PD-CONSENT",
+      "title": "Заранее отмеченное согласие в исходном HTML",
+      "explanation": "В форме с потенциальными ПДн обнаружен чекбокс согласия с HTML-атрибутом checked. Фактическое состояние после загрузки JS и правовое основание обработки ещё не проверены.",
+      "severity": "medium",
+      "status": "potential_risk",
+      "confidence": "high",
+      "applicability": "conditional",
+      "evidence_level": "direct",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "В форме с потенциальными ПДн обнаружен чекбокс согласия с HTML-атрибутом checked. Фактическое состояние после загрузки JS и правовое основание обработки ещё не проверены.",
+          "selector": "form:nth-of-type(1) input[type=checkbox]",
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://www.consultant.ru/document/Cons_doc_LAW_61801/6c94959bc017ac80140621762d2ac59f6006b08c/"
+      ],
+      "action": "Проверить состояние в браузере и основание обработки; при согласии обеспечить самостоятельное волеизъявление.",
+      "needs_human_review": true
+    },
+    {
+      "id": "LEGAL-PD-CONSENT-76d964189163",
+      "agent": "legal",
+      "rule_id": "LEGAL-PD-CONSENT",
+      "title": "Согласие на ПДн может быть объединено с другим действием",
+      "explanation": "Текст чекбокса: Согласен на обработку персональных данных и с условиями оферты. Отдельность согласия зависит от того, что пользователь фактически подписывает/подтверждает.",
+      "severity": "medium",
+      "status": "needs_review",
+      "confidence": "medium",
+      "applicability": "conditional",
+      "evidence_level": "indicative",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "Текст чекбокса: Согласен на обработку персональных данных и с условиями оферты. Отдельность согласия зависит от того, что пользователь фактически подписывает/подтверждает.",
+          "selector": "form:nth-of-type(1) input[type=checkbox]",
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://www.consultant.ru/document/Cons_doc_LAW_61801/6c94959bc017ac80140621762d2ac59f6006b08c/"
+      ],
+      "action": "Проверить требования статьи 9, основание обработки и при необходимости отделить согласие от остальных документов.",
+      "needs_human_review": true
+    },
+    {
+      "id": "LEGAL-PD-LOCALIZATION-188a3d392b3b",
+      "agent": "legal",
+      "rule_id": "LEGAL-PD-LOCALIZATION",
+      "title": "Локализация и инфраструктура ПДн",
+      "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Data flow map, storage location and processing infrastructure.",
+      "severity": "info",
+      "status": "not_tested",
+      "confidence": "high",
+      "applicability": "unknown",
+      "evidence_level": "insufficient",
+      "evidence": [],
+      "references": [
+        "https://www.consultant.ru/document/cons_doc_LAW_61801/cbf4e15b7c330f9372e876cdf2bc928bad7950ef/"
+      ],
+      "action": "Проверить область применимости и собрать документы от оператора сайта.",
+      "needs_human_review": true
+    },
+    {
+      "id": "LEGAL-PD-SECURITY-817054d4d731",
+      "agent": "legal",
+      "rule_id": "LEGAL-PD-SECURITY",
+      "title": "Внутренние меры защиты ПДн",
+      "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Security controls, access policies, data retention and incident procedures.",
+      "severity": "info",
+      "status": "not_tested",
+      "confidence": "high",
+      "applicability": "unknown",
+      "evidence_level": "insufficient",
+      "evidence": [],
+      "references": [
+        "https://www.consultant.ru/document/cons_doc_LAW_61801/ca9e5658710519f09ab2fdb8196fcb3eb024a051/"
+      ],
+      "action": "Проверить область применимости и собрать документы от оператора сайта.",
+      "needs_human_review": true
+    },
+    {
+      "id": "LEGAL-PD-RKN-9707ae31e655",
+      "agent": "legal",
+      "rule_id": "LEGAL-PD-RKN",
+      "title": "Уведомление оператора в Роскомнадзор",
+      "explanation": "Автоматический публичный обход не устанавливает выполнение требования. Resolve legal entity and current status in RKN registry, review exceptions.",
+      "severity": "info",
+      "status": "not_tested",
+      "confidence": "high",
+      "applicability": "unknown",
+      "evidence_level": "insufficient",
+      "evidence": [],
+      "references": [
+        "https://www.consultant.ru/document/cons_doc_LAW_61801/"
+      ],
+      "action": "Проверить область применимости и собрать документы от оператора сайта.",
+      "needs_human_review": true
+    },
+    {
+      "id": "GEO-SITEMAP-64b9aabd0649",
+      "agent": "geo",
+      "rule_id": "GEO-SITEMAP",
+      "title": "Не обнаружена карта сайта по стандартному адресу или в robots.txt",
+      "explanation": "По адресу /sitemap.xml не найдена XML-карта; в robots.txt нет директив Sitemap. Карта сайта не обязательна и может быть доступна по другому адресу.",
+      "severity": "low",
+      "status": "observation",
+      "confidence": "high",
+      "applicability": "conditional",
+      "evidence_level": "direct",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "По адресу /sitemap.xml не найдена XML-карта; в robots.txt нет директив Sitemap. Карта сайта не обязательна и может быть доступна по другому адресу.",
+          "selector": null,
+          "source_sha256": null
+        }
+      ],
+      "references": [
+        "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
+        "https://yandex.ru/support/webmaster/ru/epos"
+      ],
+      "action": "При необходимости указать XML sitemap в robots.txt.",
+      "needs_human_review": false
+    },
+    {
+      "id": "GEO-NOINDEX-39b044698951",
+      "agent": "geo",
+      "rule_id": "GEO-NOINDEX",
+      "title": "Обнаружена директива noindex",
+      "explanation": "meta robots / X-Robots-Tag: noindex. Может быть намеренным для служебных страниц; не является подтверждением отсутствия в индексе.",
+      "severity": "medium",
+      "status": "observation",
+      "confidence": "high",
+      "applicability": "conditional",
+      "evidence_level": "direct",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "HTTP+DOM",
+          "detail": "meta robots / X-Robots-Tag: noindex. Может быть намеренным для служебных страниц; не является подтверждением отсутствия в индексе.",
+          "selector": null,
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
+      ],
+      "action": "Проверить предназначение страницы и индексирование в Вебмастере / Search Console.",
+      "needs_human_review": false
+    },
+    {
+      "id": "GEO-TITLE-499ded2c2d32",
+      "agent": "geo",
+      "rule_id": "GEO-TITLE",
+      "title": "Отсутствует title",
+      "explanation": "В исходном HTML не найден <title>; JavaScript может изменить документ после загрузки.",
+      "severity": "medium",
+      "status": "observation",
+      "confidence": "high",
+      "applicability": "conditional",
+      "evidence_level": "direct",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "В исходном HTML не найден <title>; JavaScript может изменить документ после загрузки.",
+          "selector": null,
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
+        "https://yandex.ru/support/webmaster/ru/epos"
+      ],
+      "action": "Добавить точный, уникальный заголовок, согласованный с темой страницы.",
+      "needs_human_review": false
+    },
+    {
+      "id": "GEO-DESCRIPTION-6afef303a46a",
+      "agent": "geo",
+      "rule_id": "GEO-DESCRIPTION",
+      "title": "В HTML отсутствует meta description",
+      "explanation": "Описание может быть полезным для сниппета, но это не обязательное условие индексации или AI-ответов.",
+      "severity": "low",
+      "status": "observation",
+      "confidence": "high",
+      "applicability": "conditional",
+      "evidence_level": "direct",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "Описание может быть полезным для сниппета, но это не обязательное условие индексации или AI-ответов.",
+          "selector": null,
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
+        "https://yandex.ru/support/webmaster/ru/epos"
+      ],
+      "action": "Подготовить осмысленное описание, если это оправдано для целевой страницы.",
+      "needs_human_review": false
+    },
+    {
+      "id": "GEO-H1-fcccb70896f6",
+      "agent": "geo",
+      "rule_id": "GEO-H1",
+      "title": "В исходном HTML отсутствует H1",
+      "explanation": "Отсутствует заголовок H1 в статическом HTML; сам по себе этот признак не подтверждает низкую видимость.",
+      "severity": "low",
+      "status": "observation",
+      "confidence": "high",
+      "applicability": "conditional",
+      "evidence_level": "direct",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "Отсутствует заголовок H1 в статическом HTML; сам по себе этот признак не подтверждает низкую видимость.",
+          "selector": null,
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide",
+        "https://yandex.ru/support/webmaster/ru/epos"
+      ],
+      "action": "Проверить структуру отрисованной страницы.",
+      "needs_human_review": false
+    },
+    {
+      "id": "GEO-SCHEMA-INVALID-ed9d489442a4",
+      "agent": "geo",
+      "rule_id": "GEO-SCHEMA-INVALID",
+      "title": "Синтаксическая ошибка JSON-LD",
+      "explanation": "Как минимум один блок application/ld+json не удалось разобрать как JSON. Наличие корректного JSON-LD не гарантирует rich result или цитирование ИИ.",
+      "severity": "medium",
+      "status": "observation",
+      "confidence": "high",
+      "applicability": "conditional",
+      "evidence_level": "direct",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "Как минимум один блок application/ld+json не удалось разобрать как JSON. Наличие корректного JSON-LD не гарантирует rich result или цитирование ИИ.",
+          "selector": null,
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://developers.google.com/search/docs/appearance/structured-data/sd-policies"
+      ],
+      "action": "Проверить блок в валидаторе и привести данные в соответствие видимому содержимому.",
+      "needs_human_review": false
+    },
+    {
+      "id": "GEO-QUERY-COVERAGE-5e49d2697f1f",
+      "agent": "geo",
+      "rule_id": "GEO-QUERY-COVERAGE",
+      "title": "Целевой запрос не представлен в обнаруженном тексте",
+      "explanation": "Запрос: «Как оформить заказ?». Лексические совпадения с исследованными страницами не обнаружены. Это слабая эвристика и не измерение релевантности или поискового спроса.",
+      "severity": "low",
+      "status": "needs_review",
+      "confidence": "low",
+      "applicability": "conditional",
+      "evidence_level": "indicative",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "DOM",
+          "detail": "Запрос: «Как оформить заказ?». Лексические совпадения с исследованными страницами не обнаружены. Это слабая эвристика и не измерение релевантности или поискового спроса.",
+          "selector": null,
+          "source_sha256": "5b5cb08bc075fb8c7995ede5d5ad51647efe7bba3924f667ee63c2717bfaa3fa"
+        }
+      ],
+      "references": [
+        "https://yandex.ru/support/webmaster/ru/epos",
+        "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide"
+      ],
+      "action": "Проверить целевую страницу, интент и соответствие ответа на вопрос; при необходимости подключить редактора.",
+      "needs_human_review": true
+    },
+    {
+      "id": "GEO-AI-VISIBILITY-e1e31d366033",
+      "agent": "geo",
+      "rule_id": "GEO-AI-VISIBILITY",
+      "title": "Фактическая видимость в ответах ИИ не измерена",
+      "explanation": "Аудит HTML не измеряет цитирования в Алисе AI, Google AI или ChatGPT. Для Алисы AI доступен отчёт Вебмастера для подтверждённых сайтов; методика оценки должна учитывать изменения набора запросов и период измерения.",
+      "severity": "info",
+      "status": "not_tested",
+      "confidence": "high",
+      "applicability": "conditional",
+      "evidence_level": "insufficient",
+      "evidence": [
+        {
+          "page": "https://example.org/demo",
+          "kind": "external_configuration",
+          "detail": "Аудит HTML не измеряет цитирования в Алисе AI, Google AI или ChatGPT. Для Алисы AI доступен отчёт Вебмастера для подтверждённых сайтов; методика оценки должна учитывать изменения набора запросов и период измерения.",
+          "selector": null,
+          "source_sha256": null
+        }
+      ],
+      "references": [
+        "https://yandex.ru/support/webmaster/ru/service/alice-answers",
+        "https://developers.google.com/search/docs/appearance/ai-features"
+      ],
+      "action": "Подключить Вебмастер, согласовать целевые запросы и базовый период мониторинга.",
+      "needs_human_review": true
+    }
+  ],
+  "coverage": {
+    "sampled_pages": 1,
+    "max_pages_requested": 1,
+    "crawl_limit_reached": false,
+    "browser_pages_probed": 0,
+    "confirmed_ai_search_visibility": false,
+    "verified_legal_compliance": false
+  },
+  "crawl_notes": [],
+  "methods": [
+    "Static HTML fixture",
+    "Versioned legal rule registry",
+    "No external service calls"
+  ],
+  "disclaimers": [
+    "Это демонстрационный отчёт на вымышленном HTML, а не юридическое заключение.",
+    "Нахождение сигнала не означает установленного нарушения или проблем с индексированием."
+  ]
+}
