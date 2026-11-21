@@ -99,7 +99,7 @@ class SiteSnapshot(BaseModel):
 
 class AuditReport(BaseModel):
     scanned_at_utc: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    version: str = "0.2.1"
+    version: str = "0.2.2"
     target: str
     agents: list[AgentName]
     pages_scanned: int
