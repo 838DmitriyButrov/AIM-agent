@@ -12,7 +12,8 @@ def to_markdown(report: AuditReport) -> str:
              f"**Страниц исследовано:** {report.pages_scanned}",
              f"**Потенциальных рисков:** {counts['potential_risk']}",
              f"**На ручной проверке:** {counts['needs_review']}",
-             f"**Не проверено:** {counts['not_tested']}",
+             f"**Информационных наблюдений:** {counts['observation']}",
+             f"**Непроверенных требований (НЕ проблемы):** {counts['not_tested']}",
              "", "## Охват проверки", ""]
     lines += [f"- {key}: {value}" for key, value in report.coverage.items()]
     if report.coverage.get("scan_status") == "blocked_network":
@@ -34,8 +35,13 @@ def to_markdown(report: AuditReport) -> str:
                 f"байтов: {item.response_body_bytes}; SHA-256: {item.body_sha256}",
                 "  - **Интерпретация:** причина отказа не подтверждена. Для дальнейшего доступа требуется разрешённый способ проверки.",
             ]
-    lines += ["", "## Находки", ""]
-    for idx, f in enumerate(report.findings, 1):
+    # Preserve every record in JSON, but never label untested requirements as defects.
+    reviewable = [item for item in report.findings if item.status != "not_tested"]
+    unchecked = [item for item in report.findings if item.status == "not_tested"]
+    lines += ["", "## Наблюдения и потенциальные риски", "",
+              "Эти записи не являются установленными нарушениями.", ""]
+
+    for idx, f in enumerate(reviewable, 1):
         lines += [f"### {idx}. {f.title}",
                   f"**{f.agent.upper()} · {f.rule_id} · {f.status} · {f.severity} · уверенность: {f.confidence}**",
                   f"**Применимость:** {f.applicability}; **уровень доказательств:** {f.evidence_level}", "",
@@ -47,6 +53,12 @@ def to_markdown(report: AuditReport) -> str:
                 lines.append(f"  - SHA-256 исходного HTML: `{evidence.source_sha256}`")
         for ref in f.references:
             lines.append(f"- Источник: {ref}")
+        lines.append("")
+    if unchecked:
+        lines += ["", "## Требования, которые не удалось проверить", "",
+                  "Не включаются в число обнаруженных проблем.", ""]
+        for item in unchecked:
+            lines += [f"- **{item.rule_id}** — {item.title}. {item.action}"]
         lines.append("")
     if not report.findings and report.pages_scanned:
         lines += ["*Автоматически проверяемых проблем не найдено в полученной выборке. Это не подтверждает соответствие требованиям.*", ""]
