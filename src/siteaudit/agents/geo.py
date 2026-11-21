@@ -113,9 +113,18 @@ class GeoAgent:
                     "low", page, "observation", "high", "Подготовить осмысленное описание, если это оправдано для целевой страницы.",
                     evidence_level="direct")
             if not page.h1:
-                add("GEO-H1", "В исходном HTML отсутствует H1",
-                    "Отсутствует заголовок H1 в статическом HTML; сам по себе этот признак не подтверждает низкую видимость.",
-                    "low", page, "observation", "high", "Проверить структуру отрисованной страницы.", evidence_level="direct")
+                rendered = next((item for item in snapshot.browser_evidence
+                                 if str(item.get("url", "")).rstrip("/") == page.url.rstrip("/")), None)
+                if rendered and int(rendered.get("rendered_h1_count", 0)) > 0:
+                    add("GEO-H1-JS", "H1 появляется после JavaScript",
+                        "В исходном HTML H1 отсутствует, но в разрешённой браузерной проверке он обнаружен. "
+                        "Это не доказывает проблему индексации; проверьте требования поисковой платформы.",
+                        "low", page, "needs_review", "high", "Проверить серверный HTML, рендеринг и Search Console / Вебмастер.",
+                        evidence_level="direct")
+                else:
+                    add("GEO-H1", "В исходном HTML отсутствует H1",
+                        "Отсутствует заголовок H1 в статическом HTML; сам по себе этот признак не подтверждает низкую видимость.",
+                        "low", page, "observation", "high", "Проверить структуру отрисованной страницы.", evidence_level="direct")
             if page.canonical and page.canonical.rstrip("/") != page.url.rstrip("/"):
                 external = (urlparse(page.canonical).hostname != urlparse(page.url).hostname)
                 add("GEO-CANONICAL", "Canonical указывает на иной URL",
