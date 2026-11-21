@@ -131,3 +131,49 @@ def test_invalid_port_is_rejected_without_internal_error(monkeypatch):
     response = TestClient(api.app).post("/scan", json={"url": "https://example.org:abc/"},
                                         headers={"Authorization": "Bearer " + "x" * 40})
     assert response.status_code == 403
+
+
+
+def test_robots_blocked_is_an_audit_gap_not_a_site_finding(monkeypatch):
+    from siteaudit import orchestrator
+    url = "https://example.org/"
+    snapshot = SiteSnapshot(input_url=url, final_url=url,
+                            crawl_notes=["Disallowed by robots.txt: https://example.org/"])
+    class FakeCrawler:
+        def __init__(self, **kwargs):
+            pass
+        def crawl(self, target):
+            return snapshot
+    monkeypatch.setattr(orchestrator, "SiteCrawler", FakeCrawler)
+    report = orchestrator.run_audit(url)
+    assert report.coverage["scan_status"] == "blocked_robots"
+    assert report.findings == []
+
+
+def test_generic_and_bot_scoped_snippet_directives_are_separate():
+    url = "https://example.org/"
+    page = parse_page(url, 200, """<html><head><title>Catalog</title>
+        <meta name="googlebot" content="max-snippet:0"></head><body><h1>Catalog</h1></body></html>""")
+    snap = SiteSnapshot(input_url=url, final_url=url, pages=[page],
+                        robots_txt="User-agent: *\\nAllow: /", sitemap_found=True)
+    matches = [f for f in GeoAgent().run(snap) if f.rule_id == "GEO-SNIPPET-RESTRICTION"]
+    assert len(matches) == 1
+    assert "googlebot" in matches[0].explanation
+
+
+def test_markdown_report_separates_unchecked_rules_from_observations():
+    from siteaudit.models import AuditReport, Finding
+    from siteaudit.report import to_markdown
+    a = Finding(id="test-geo", agent="geo", rule_id="TEST-GEO", title="Visible",
+                explanation="Evidence available", severity="low", status="observation",
+                confidence="high", action="Review")
+    b = Finding(id="test-legal", agent="legal", rule_id="TEST-LEGAL", title="Unknown",
+                explanation="Cannot test publicly", severity="info", status="not_tested",
+                confidence="high", action="Ask legal")
+    report = AuditReport(target="https://example.org/", agents=["geo", "legal"],
+                         pages_scanned=1, findings=[a, b])
+    rendered = to_markdown(report)
+    assert "**Непроверенных требований (НЕ проблемы):** 1" in rendered
+    assert "## Требования, которые не удалось проверить" in rendered
+    assert rendered.count("### 1. Visible") == 1
+    assert "### 2. Unknown" not in rendered
