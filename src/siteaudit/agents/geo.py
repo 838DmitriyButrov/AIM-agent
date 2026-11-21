@@ -108,7 +108,7 @@ class GeoAgent:
             limited_snippets = [(name, d) for name, d in
                                 [("all bots", d) for d in generic_directives] + scoped_directives
                                 if has_directive(d, "nosnippet") or
-                                re.search(r"max-snippet\\s*:\\s*0(?:\\D|$)", d, re.I)]
+                                re.search(r"max-snippet\s*:\s*0(?:\D|$)", d, re.I)]
             if limited_snippets:
                 scopes = ", ".join(name for name, _ in limited_snippets)
                 add("GEO-SNIPPET-RESTRICTION", "Директива ограничивает использование фрагментов текста",
