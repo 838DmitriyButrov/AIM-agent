@@ -17,6 +17,10 @@ SCAN_STATUS = {
 }
 
 IMPACT = {
+    "GEO-SERP-TITLE": "Пользователь видит в результате другой заголовок. Проверьте, сохраняет ли он обещание страницы и помогает ли отличить её от других результатов. Расхождение само по себе не доказывает падение кликов.",
+    "GEO-SERP-DESCRIPTION": "Текст в источнике выдачи отличается от подготовленного описания. Проверьте, получает ли пользователь подходящий ответ ещё до перехода. По этому замеру нельзя оценить изменение CTR.",
+    "GEO-SERP-TRUNCATED": "В этом результате видна только начальная часть текста. Покупатель может не увидеть уточнение в конце, например доставку или наличие. Формат и длина зависят от поисковика и устройства.",
+    "GEO-SERP-MATCH": "В этом снимке текст совпал. По другому запросу, в другом регионе или при следующем замере результат может измениться.",
     "GEO-SCHEMA-INVALID": "Поисковик может пропустить некорректный блок JSON-LD. Если в нём переданы цена, наличие или рейтинг, эти данные могут не попасть в расширенное представление результата. Влияние на позиции по этой ошибке не измерено.",
     "GEO-SCHEMA-TYPES": "Разметка помогает поисковым системам понять, какие сущности описаны на странице. Наличие типов само по себе не подтверждает право на расширенный результат или его показ.",
     "GEO-TITLE": "Поисковик может сформировать заголовок результата из других элементов страницы. В выдаче он может отличаться от того, что планировал сайт.",
@@ -87,8 +91,9 @@ def finding_lines(findings: list[Finding], start: int = 1) -> list[str]:
     lines = []
     for index, group in enumerate(groups.values(), start):
         first = group[0]
+        details = first.explanation if first.rule_id.startswith("GEO-SERP-") else " ".join(first.explanation.split())
         lines += [f"### {index}. {first.title}", "",
-                  f"**Что увидел агент.** {' '.join(first.explanation.split())}", "",
+                  f"**Что увидел агент.** {details}", "",
                   f"**На что это влияет.** {impact_for(first)}", "",
                   f"**Следующий шаг.** {next_step(first)}", ""]
         pages = dict.fromkeys(evidence.page for finding in group for evidence in finding.evidence if evidence.page)
@@ -113,6 +118,7 @@ def crawl_note(note: str) -> str:
 
 def to_markdown(report: AuditReport) -> str:
     counts = Counter(f.status for f in report.findings)
+    serp = [f for f in report.findings if f.rule_id.startswith("GEO-SERP-") and f.status != "not_tested"]
     needs_attention = [f for f in report.findings if f.status in {"potential_risk", "needs_review"}]
     observations = [f for f in report.findings if f.status == "observation"]
     unchecked = [f for f in report.findings if f.status == "not_tested"]
@@ -131,13 +137,24 @@ def to_markdown(report: AuditReport) -> str:
         lines.extend(f"- HTTP {item.status_code} · {PHASE[item.phase]} · <{item.url}>"
                      for item in report.access_diagnostics[:12])
         lines.append("")
+    if "geo" in report.agents:
+        lines += ["## Что видно в поисковой выдаче", ""]
+        if "serp_queries_checked" in report.coverage:
+            lines += [f"- Запросов со снимками: **{report.coverage['serp_queries_checked']}**.",
+                      f"- Сопоставлено совпадающих URL: **{report.coverage['serp_urls_matched']}**.",
+                      f"- Сравнено заголовков и описаний: **{report.coverage['serp_fields_compared']}**.", ""]
+            lines += finding_lines(sorted(serp, key=lambda finding: finding.status != "needs_review"))
+        else:
+            lines += ["Выдача не проверена. Для сравнения нужен снимок органических результатов или подключённый Яндекс Search API.", ""]
+    needs_attention = [finding for finding in needs_attention if not finding.rule_id.startswith("GEO-SERP-")]
+    observations = [finding for finding in observations if not finding.rule_id.startswith("GEO-SERP-")]
     if needs_attention:
         lines += ["## Что требует внимания", "",
                   "Эти записи требуют проверки перед выводом о нарушении или влиянии на сайт.", ""]
-        lines += finding_lines(needs_attention)
+        lines += finding_lines(needs_attention, len(serp) + 1)
     if observations:
         lines += ["## Наблюдения", ""]
-        lines += finding_lines(observations, len(needs_attention) + 1)
+        lines += finding_lines(observations, len(needs_attention) + len(serp) + 1)
     if passed:
         lines += ["## Проверки без замечаний", "", *[f"- {item.title}" for item in passed], ""]
     if unchecked:
