@@ -122,7 +122,7 @@ def test_visible_prefix_with_ellipsis_is_labeled_as_truncation():
     source.results[0].snippet = ""
     results, _ = compare_search(site, [source])
     assert results[0].rule_id == "GEO-SERP-TRUNCATED"
-    assert "показан сокращённо" in results[0].title
+    assert "видна только часть текста" in results[0].title
 
 
 def test_private_scan_can_compare_supplied_search_snapshot(monkeypatch):
