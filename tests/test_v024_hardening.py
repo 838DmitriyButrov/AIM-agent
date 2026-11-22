@@ -173,7 +173,44 @@ def test_markdown_report_separates_unchecked_rules_from_observations():
     report = AuditReport(target="https://example.org/", agents=["geo", "legal"],
                          pages_scanned=1, findings=[a, b])
     rendered = to_markdown(report)
-    assert "**Непроверенных требований (НЕ проблемы):** 1" in rendered
+    assert "Остались без проверки: **1**" in rendered
     assert "## Требования, которые не удалось проверить" in rendered
     assert rendered.count("### 1. Visible") == 1
     assert "### 2. Unknown" not in rendered
+
+
+def test_markdown_explains_schema_impact_and_groups_repeated_observations():
+    from siteaudit.models import AuditReport, Evidence, Finding
+    from siteaudit.report import to_markdown
+
+    schema_error = Finding(
+        id="json-ld", agent="geo", rule_id="GEO-SCHEMA-INVALID",
+        title="Синтаксическая ошибка JSON-LD", explanation="Один блок не читается как JSON.",
+        severity="medium", status="observation", confidence="high", action="Запустить валидатор.",
+    )
+    schema_types = Finding(
+        id="types-1", agent="geo", rule_id="GEO-SCHEMA-TYPES",
+        title="В JSON-LD объявлен Product", explanation="В HTML найден Product.",
+        severity="info", status="observation", confidence="high", action="Проверить разметку.",
+        evidence=[Evidence(page="https://example.org/one", kind="DOM", detail="Product")],
+    )
+    second_url = schema_types.model_copy(update={
+        "id": "types-2",
+        "evidence": [Evidence(page="https://example.org/two", kind="DOM", detail="Product")],
+    })
+    report = AuditReport(
+        target="https://example.org/", agents=["geo"], pages_scanned=2,
+        findings=[schema_error, schema_types, second_url],
+        coverage={"scan_status": "completed_sample", "max_pages_requested": 2},
+    )
+
+    rendered = to_markdown(report)
+
+    assert "Поисковик может пропустить некорректный блок JSON-LD" in rendered
+    assert "Влияние на позиции по этой ошибке не измерено" in rendered
+    assert "На что это влияет" in rendered
+    assert "Следующий шаг" in rendered
+    assert "max_pages_requested" not in rendered
+    assert rendered.count("В JSON-LD объявлен Product") == 1
+    assert "<https://example.org/one>" in rendered
+    assert "<https://example.org/two>" in rendered
