@@ -13,7 +13,7 @@ import socket
 import time
 from collections import deque
 from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
-from urllib.robotparser import RobotFileParser
+from protego import Protego
 import httpx
 from .extract import parse_page
 from .models import AccessDiagnostic, SiteSnapshot
@@ -208,7 +208,6 @@ class SiteCrawler:
         sitemap_found = None
         sitemap_status = None
         declared: list[str] = []
-        robot = RobotFileParser()
         with httpx.Client(headers=self._headers(), timeout=15, trust_env=False, follow_redirects=False) as client:
             base = f"{urlparse(start).scheme}://{urlparse(start).netloc}"
             try:
@@ -216,14 +215,14 @@ class SiteCrawler:
                                                    max_bytes=512_000, allowed_hosts=allowed_hosts)
                 if status == 200:
                     robots_txt = content
-                    robot.parse(content.splitlines())
+                    robot = Protego.parse(content)
                     for line in content.splitlines():
                         if re.match(r"^\s*Sitemap\s*:", line, re.I):
                             address = line.split(":", 1)[1].strip()
                             if urlparse(address).scheme in {"http", "https"}:
                                 declared.append(address)
                 elif status in {404, 410}:
-                    robot.parse([])
+                    robot = Protego.parse("")
                 else:
                     if status in ACCESS_STATUSES:
                         access_diagnostics.append(diagnose_http_access(
@@ -259,7 +258,7 @@ class SiteCrawler:
                 if BLOCKED_GET_PATHS.search(parsed.path):
                     notes.append(f"Potentially state-changing GET not visited: {current}")
                     continue
-                if not robot.can_fetch(ROBOTS_TOKEN, current):
+                if not robot.can_fetch(current, ROBOTS_TOKEN):
                     notes.append(f"Disallowed by robots.txt: {current}")
                     continue
                 try:
