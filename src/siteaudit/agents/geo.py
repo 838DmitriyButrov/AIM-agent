@@ -109,7 +109,7 @@ class GeoAgent:
                     if not robot.can_fetch(page.url, user_agent):
                         add(f"GEO-{user_agent.upper()}-ROBOTS", f"robots.txt запрещает обход для {user_agent}",
                             f"Правила robots.txt для {user_agent} запрещают обход этого URL. "
-                            "Фактический обход и индексирование платформой не проверялись.",
+                            "Запрет обхода не гарантирует исключения URL из индекса. Фактический обход не проверялся.",
                             severity, page.url, "observation", "high", "Проверить правило и назначение страницы.",
                             [ROBOTS_SPEC], "robots.txt", evidence_level="direct")
                 if not robot.can_fetch(page.url, "Google-Extended"):
