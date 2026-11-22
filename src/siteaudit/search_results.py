@@ -135,14 +135,21 @@ def compare_search(snapshot: SiteSnapshot, observations: list[SearchSnapshot]) -
                 stats["serp_fields_compared"] += 1
                 if field == "DESCRIPTION" and is_yandex_api:
                     name = "Фрагменты Яндекс Search API"
-                differs = _normalize(html_value) != _normalize(search_value)
+                original = _normalize(html_value)
+                observed = _normalize(search_value)
+                differs = original != observed
+                visible_prefix = observed.removesuffix("...").removesuffix("…").rstrip()
+                truncated = differs and bool(visible_prefix) and visible_prefix != observed and original.startswith(visible_prefix)
+                if truncated:
+                    action = "Вынести название и важные для запроса уточнения в начало текста. Затем проверить, что видно в выдаче на телефоне и компьютере."
                 explanation = f"{source}\n\nВ HTML: {html_value.strip() or 'тег пуст или отсутствует'}.\n\nВ источнике выдачи: {search_value.strip()}."
                 key = f"{observation.engine}|{observation.query}|{observation.region}|{observation.observed_at.isoformat()}|{result.position}"
-                rule = f"GEO-SERP-{field}" if differs else "GEO-SERP-MATCH"
+                rule = "GEO-SERP-TRUNCATED" if truncated else f"GEO-SERP-{field}" if differs else "GEO-SERP-MATCH"
+                comparison = "показан сокращённо" if truncated else "отличается от HTML" if differs else "совпадает с HTML"
                 findings.append(Finding(
                     id=issue_id("geo", rule, page.url, f"{field}|{key}"),
                     agent="geo", rule_id=rule,
-                    title=f"{name}: " + ("отличается от HTML" if differs else "совпадает с HTML"),
+                    title=f"{name}: {comparison}",
                     explanation=explanation, severity="low" if differs else "info",
                     status="needs_review" if differs else "observation", confidence="high",
                     applicability="conditional", evidence_level="direct",

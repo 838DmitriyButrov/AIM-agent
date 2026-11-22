@@ -111,3 +111,15 @@ def test_crawl_refusal_does_not_check_priority_urls(monkeypatch):
     assert report.coverage["scan_status"] == "blocked_http"
     assert report.findings == []
     assert "Выдача не проверена" in to_markdown(report)
+
+
+def test_visible_prefix_with_ellipsis_is_labeled_as_truncation():
+    url = "https://example.org/rug/"
+    page = Page(url=url, status_code=200, title="Ковры для гостиной с доставкой")
+    site = SiteSnapshot(input_url=url, final_url=url, pages=[page])
+    source = search_source()
+    source.results[0].title = "Ковры для гостиной ..."
+    source.results[0].snippet = ""
+    results, _ = compare_search(site, [source])
+    assert results[0].rule_id == "GEO-SERP-TRUNCATED"
+    assert "показан сокращённо" in results[0].title
