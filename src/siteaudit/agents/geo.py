@@ -2,13 +2,22 @@
 from __future__ import annotations
 import re
 from urllib.parse import urlparse
-from urllib.robotparser import RobotFileParser
+from protego import Protego
 from ..finding_utils import evidence_from_page, issue_id
 from ..models import Evidence, Finding, Page, SiteSnapshot
 
 GOOGLE = "https://developers.google.com/search/docs/fundamentals/ai-optimization-guide"
 GOOGLE_AI = "https://developers.google.com/search/docs/appearance/ai-features"
 GOOGLE_ROBOTS = "https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag"
+GOOGLE_EXTENDED = "https://developers.google.com/crawling/docs/crawlers-fetchers/google-common-crawlers#google-extended"
+ROBOTS_SPEC = "https://www.rfc-editor.org/rfc/rfc9309.html"
+SEARCH_BOTS = {
+    "Googlebot": "medium",
+    "YandexBot": "medium",
+    "OAI-SearchBot": "low",
+    "Claude-SearchBot": "low",
+    "PerplexityBot": "low",
+}
 GOOGLE_SCHEMA = "https://developers.google.com/search/docs/appearance/structured-data/sd-policies"
 YANDEX = "https://yandex.ru/support/webmaster/ru/service/alice-answers"
 YANDEX_GUIDE = "https://yandex.ru/support/webmaster/ru/epos"
@@ -27,6 +36,22 @@ def terms(value: str) -> set[str]:
 
 def has_directive(directives: str, directive: str) -> bool:
     return bool(re.search(r"(?:^|[,\s])" + re.escape(directive) + r"(?:$|[,\s:])", directives.lower()))
+
+
+def json_ld_types(blocks: list[dict | list | str]) -> set[str]:
+    """Collect declared types without expanding JSON-LD contexts."""
+    types: set[str] = set()
+    pending = list(blocks)
+    while pending:
+        node = pending.pop()
+        if isinstance(node, list):
+            pending.extend(node)
+        elif isinstance(node, dict):
+            declared = node.get("@type")
+            values = declared if isinstance(declared, list) else [declared]
+            types.update(value.strip() for value in values if isinstance(value, str) and value.strip())
+            pending.extend(value for key, value in node.items() if key not in {"@context", "@type"})
+    return types
 
 
 class GeoAgent:
@@ -72,30 +97,27 @@ class GeoAgent:
             add("GEO-ROBOTS", "Неизвестно состояние robots.txt", "Не удалось проверить robots.txt; это ограничение проверки, а не доказательство запрета индексации.",
                 "info", snapshot.final_url, "not_tested", "high", "Повторить проверку robots.txt.", evidence_level="insufficient")
 
-        robot = RobotFileParser()
-        if snapshot.robots_txt is not None:
-            robot.parse(snapshot.robots_txt.splitlines())
+        robot = Protego.parse(snapshot.robots_txt) if snapshot.robots_txt is not None else None
+        robots_origin = urlparse(snapshot.input_url)
 
         seen_titles: dict[str, str] = {}
         pages_by_url = {p.url.rstrip("/"): p for p in snapshot.pages}
         for page in snapshot.pages:
-            if snapshot.robots_txt is not None:
-                bots = [
-                    ("GOOGLEBOT", "Googlebot"),
-                    ("YANDEXBOT", "YandexBot"),
-                    ("OAI-SEARCHBOT", "OAI-SearchBot"),
-                    ("CLAUDE-SEARCHBOT", "Claude-SearchBot"),
-                    ("PERPLEXITYBOT", "PerplexityBot"),
-                    ("GOOGLE-EXTENDED", "Google-Extended"),
-                ]
-                for name, user_agent in bots:
-                    if not robot.can_fetch(user_agent, page.url):
-                        severity = "medium" if name in {"GOOGLEBOT", "YANDEXBOT"} else "low"
-                        add(f"GEO-{name}-ROBOTS", f"robots.txt запрещает доступ для {user_agent}",
-                            f"В robots.txt crawler {user_agent} не имеет доступа к {page.url}. "
-                            "Если страница должна участвовать в поиске или AI-ответах, проверьте правило; robots.txt сам по себе не гарантирует деиндексацию.",
-                            severity, page, "observation", "high", "Проверить целевую аудиторию, правило Disallow и назначение страницы.",
-                            [GOOGLE_ROBOTS, YANDEX_GUIDE, GOOGLE_AI], "robots.txt", evidence_level="direct")
+            page_url = urlparse(page.url)
+            if robot is not None and (page_url.scheme, page_url.netloc) == (robots_origin.scheme, robots_origin.netloc):
+                for user_agent, severity in SEARCH_BOTS.items():
+                    if not robot.can_fetch(page.url, user_agent):
+                        add(f"GEO-{user_agent.upper()}-ROBOTS", f"robots.txt запрещает обход для {user_agent}",
+                            f"Правила robots.txt для {user_agent} запрещают обход этого URL. "
+                            "Запрет обхода не гарантирует исключения URL из индекса. Фактический обход не проверялся.",
+                            severity, page.url, "observation", "high", "Проверить правило и назначение страницы.",
+                            [ROBOTS_SPEC], "robots.txt", evidence_level="direct")
+                if not robot.can_fetch(page.url, "Google-Extended"):
+                    add("GEO-GOOGLE-EXTENDED-POLICY", "robots.txt ограничивает использование контента Google-Extended",
+                        "Google-Extended управляет использованием контента для обучения Gemini и в отдельных сценариях "
+                        "ответов на основе поиска. Правило не влияет на включение страницы в Google Search.",
+                        "info", page.url, "observation", "high", "Сверить правило с политикой использования контента.",
+                        [GOOGLE_EXTENDED], "robots.txt", evidence_level="direct")
             # Generic and bot-scoped meta must remain distinguishable. A Googlebot
             # directive is not evidence that all search engines are restricted.
             generic_directives = [d for d in [page.robots_meta, page.x_robots_tag] if d]
@@ -165,24 +187,16 @@ class GeoAgent:
                     "Наличие корректного JSON-LD не гарантирует rich result или цитирование ИИ.",
                     "medium", page, "observation", "high", "Проверить блок в валидаторе и привести данные в соответствие видимому содержимому.",
                     [GOOGLE_SCHEMA], evidence_level="direct")
-            else:
-                types_found = set()
-                for item in page.structured_data:
-                    if isinstance(item, dict):
-                        t = item.get("@type")
-                        if isinstance(t, str):
-                            types_found.add(t)
-                        elif isinstance(t, list):
-                            types_found.update(str(x) for x in t)
-                expected = {"Organization", "WebSite", "Article", "FAQPage", "Product", "BreadcrumbList"}
-                missing = expected - types_found
-                if missing and len(page.text) > 200:
-                    add("GEO-SCHEMA-TYPES", "Не обнаружены распространённые типы schema.org",
-                        f"На странице не найдены типы: {', '.join(sorted(missing))}. "
-                        "Это не ошибка и не гарантия отсутствия rich results. Наличие подходящей разметки может помочь поисковым системам и AI-системам.",
-                        "info", page, "observation", "medium",
-                        "Рассмотреть добавление релевантных типов schema.org (Organization, Article, FAQPage и т.д.) при соответствии содержимому.",
-                        [GOOGLE_SCHEMA], evidence_level="indicative")
+            types_found = json_ld_types(page.structured_data)
+            if types_found:
+                names = ", ".join(sorted(types_found))
+                excerpt = names if len(names) <= 400 else names[:397] + "..."
+                add("GEO-SCHEMA-TYPES", "Типы, объявленные в JSON-LD",
+                    f"В исходном HTML найдены объявления @type: {excerpt}. "
+                    "Соответствие разметки требованиям поисковых платформ не проверялось.",
+                    "info", page, "observation", "high",
+                    "При необходимости проверить разметку для конкретного типа страницы.",
+                    [GOOGLE_SCHEMA], evidence_level="direct")
             if len(page.text.strip()) < 130 and page.scripts:
                 add("GEO-RENDER-REVIEW", "Нужна проверка отрисованного содержимого",
                     "В статическом HTML очень мало видимого текста и есть JS-скрипты. Возможно, основное содержимое появляется после рендеринга.",

@@ -162,3 +162,32 @@ def test_geo_distinguishes_browser_rendered_h1():
     findings = GeoAgent().run(snapshot)
     assert any(f.rule_id == "GEO-H1-JS" for f in findings)
     assert not any(f.rule_id == "GEO-H1" for f in findings)
+
+
+def test_crawler_applies_robots_wildcards_and_more_specific_allow(monkeypatch):
+    requested = []
+
+    def handler(request):
+        path = request.url.path
+        requested.append(path)
+        if path == "/robots.txt":
+            return httpx.Response(200, text=(
+                "User-agent: SiteAuditAgents\n"
+                "Disallow: /catalog/*/index$\n"
+                "Allow: /catalog/public/index$\n"
+            ))
+        if path == "/sitemap.xml":
+            return httpx.Response(404)
+        if path == "/":
+            return httpx.Response(200, text=(
+                '<html><body><a href="/catalog/private/index">Private</a>'
+                '<a href="/catalog/public/index">Public</a></body></html>'
+            ), headers={"content-type": "text/html"})
+        assert path == "/catalog/public/index"
+        return httpx.Response(200, text="<html><body>Public</body></html>",
+                              headers={"content-type": "text/html"})
+
+    report = run_mock(monkeypatch, handler)
+    assert report.pages_scanned == 2
+    assert "/catalog/private/index" not in requested
+    assert "/catalog/public/index" in requested
