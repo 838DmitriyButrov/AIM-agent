@@ -9,6 +9,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from .orchestrator import run_audit
+from .search_results import SearchSnapshot
 
 app = FastAPI(title="Site Audit Agents", version="0.2.4",
               description="Restricted LEGAL and GEO audit API; no public multitenant exposure")
@@ -21,6 +22,7 @@ class ScanRequest(BaseModel):
     url: str
     agents: list[str] = Field(default_factory=lambda: ["legal", "geo"])
     max_pages: int = Field(default=8, ge=1, le=8)
+    search_snapshots: list[SearchSnapshot] | None = Field(default=None, max_length=5)
 
 
 @app.get("/health")
@@ -60,7 +62,8 @@ def scan(req: ScanRequest, request: Request):
         raise HTTPException(status_code=429, detail="Audit worker busy; retry later")
     try:
         try:
-            report = run_audit(req.url, req.agents, req.max_pages)
+            search_options = {"search_snapshots": req.search_snapshots} if req.search_snapshots else {}
+            report = run_audit(req.url, req.agents, req.max_pages, **search_options)
             if report.coverage.get("scan_status") == "blocked_network":
                 return JSONResponse(status_code=503, content=report.model_dump(mode="json"))
             return report

@@ -123,3 +123,23 @@ def test_visible_prefix_with_ellipsis_is_labeled_as_truncation():
     results, _ = compare_search(site, [source])
     assert results[0].rule_id == "GEO-SERP-TRUNCATED"
     assert "показан сокращённо" in results[0].title
+
+
+def test_private_scan_can_compare_supplied_search_snapshot(monkeypatch):
+    from fastapi.testclient import TestClient
+    from siteaudit import api
+
+    url = "https://example.org/rug/"
+    snapshot = SiteSnapshot(input_url=url, final_url=url, pages=[Page(url=url, status_code=200, title="Каталог")])
+    monkeypatch.setenv("AUDIT_TOKEN", "x" * 32)
+    monkeypatch.setenv("AUDIT_ALLOWED_HOSTS", "example.org")
+    monkeypatch.setattr(orchestrator.SiteCrawler, "crawl", lambda self, target, **options: snapshot)
+
+    response = TestClient(api.app).post(
+        "/scan", headers={"Authorization": "Bearer " + "x" * 32},
+        json={"url": "https://example.org/", "agents": ["geo"],
+              "search_snapshots": [search_source().model_dump(mode="json")]},
+    )
+    assert response.status_code == 200
+    assert response.json()["coverage"]["serp_fields_compared"] == 2
+    assert any(item["rule_id"] == "GEO-SERP-TITLE" for item in response.json()["findings"])
