@@ -9,7 +9,7 @@ from .models import AuditReport, Finding
 SCAN_STATUS = {
     "completed_sample": "Проверка выборки завершена.",
     "completed_sample_with_restrictions": "Проверка выборки завершена. Часть запросов получила отказ.",
-    "blocked_network": "Аудит не выполнен. Среда запуска не смогла подключиться к сайту.",
+    "blocked_network": "Сканирование не началось. Среда запуска не смогла подключиться к сайту.",
     "blocked_http": "Аудит не выполнен. Сервер отказал в доступе нашему агенту.",
     "rate_limited": "Аудит не выполнен. Сервер ограничил частоту запросов агента.",
     "blocked_robots": "Аудит не выполнен. Правила обхода не позволили получить страницы.",
@@ -141,7 +141,7 @@ def to_markdown(report: AuditReport) -> str:
         lines += [f"- **{item.title}.** {UNCHECKED_ACTION.get(item.rule_id, item.action)}" for item in unchecked]
         lines.append("")
     if not report.findings and report.pages_scanned:
-        lines += ["В обследованных страницах агент не отметил проблем. Проверка охватывала только эту выборку.", ""]
+        lines += ["## Находки", "", "В обследованных страницах агент не отметил проблем. Проверка охватывала только эту выборку.", ""]
     notes = [crawl_note(note) for note in report.crawl_notes if not note.startswith("Limited sample:")]
     if notes:
         lines += ["## Что ограничило обход", "", *[f"- {note}" for note in notes], ""]
