@@ -9,7 +9,7 @@ from .models import AuditReport, Finding
 SCAN_STATUS = {
     "completed_sample": "Проверка выборки завершена.",
     "completed_sample_with_restrictions": "Проверка выборки завершена. Часть запросов получила отказ.",
-    "blocked_network": "Сканирование не началось. Среда запуска не смогла подключиться к сайту.",
+    "blocked_network": "Сканирование не началось. Среда запуска не смогла подключиться к сайту. Связь ошибки с проблемой сайта не установлена.",
     "blocked_http": "Аудит не выполнен. Сервер отказал в доступе нашему агенту.",
     "rate_limited": "Аудит не выполнен. Сервер ограничил частоту запросов агента.",
     "blocked_robots": "Аудит не выполнен. Правила обхода не позволили получить страницы.",
@@ -50,6 +50,8 @@ UNCHECKED_ACTION = {
     "LEGAL-KKT": "Сверить выдачу чеков и порядок расчётов на реальных сценариях оплаты.",
     "LEGAL-LANGUAGE": "Проверить тексты интерфейса и применимость требований к ним.",
 }
+
+DIRECTION = {"legal": "правовые признаки (LEGAL)", "geo": "поисковая доступность и разметка (GEO/SEO)", "ux": "удобство сайта (UX)"}
 
 PHASE = {"robots": "правила обхода", "sitemap": "карта сайта", "page": "страница"}
 
@@ -115,8 +117,10 @@ def to_markdown(report: AuditReport) -> str:
     observations = [f for f in report.findings if f.status == "observation"]
     unchecked = [f for f in report.findings if f.status == "not_tested"]
     passed = [f for f in report.findings if f.status == "passed"]
+    directions = ", ".join(DIRECTION[agent] for agent in report.agents)
     lines = ["# Аудит сайта", "", f"**Сайт:** <{report.target}>",
-             f"**Дата и время (UTC):** {report.scanned_at_utc:%Y-%m-%d %H:%M:%S}", "",
+             f"**Дата и время (UTC):** {report.scanned_at_utc:%Y-%m-%d %H:%M:%S}",
+             f"**Направления проверки:** {directions}", "",
              "## Коротко", "", *coverage_lines(report),
              f"- Требуют внимания: **{len(needs_attention)}**. Это вопросы и потенциальные риски для проверки.",
              f"- Наблюдения: **{len(observations)}**.",
