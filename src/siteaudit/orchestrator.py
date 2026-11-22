@@ -1,9 +1,11 @@
 """Single scan orchestrator; agents share the same crawl and immutable evidence."""
 from __future__ import annotations
+from urllib.parse import urlparse
 from .agents.geo import GeoAgent
 from .agents.legal import LegalAgent
 from .crawler import SiteCrawler, DNSResolutionError
 from .models import AuditReport
+from .search_results import SearchSnapshot, compare_search
 
 DISCLAIMER = [
     "Результаты — предварительная техническая диагностика, а не юридическое заключение или сертификат соответствия.",
@@ -16,12 +18,24 @@ DISCLAIMER = [
 
 
 def run_audit(url: str, agents: list[str] | None = None, max_pages: int = 12,
-              with_browser: bool = False, with_ai: bool = False, queries: list[str] | None = None) -> AuditReport:
+              with_browser: bool = False, with_ai: bool = False, queries: list[str] | None = None,
+              search_snapshots: list[SearchSnapshot] | None = None) -> AuditReport:
     selected = list(dict.fromkeys(agents or ["legal", "geo"]))
     if any(agent not in {"legal", "geo"} for agent in selected):
         raise ValueError("Phase one supports only agents: legal, geo. UX is reserved for phase two.")
+    if search_snapshots and "geo" not in selected:
+        raise ValueError("Для сравнения с выдачей нужен агент GEO.")
     try:
-        snapshot = SiteCrawler(max_pages=max_pages).crawl(url)
+        crawler = SiteCrawler(max_pages=max_pages)
+        if search_snapshots:
+            target_host = (urlparse(url).hostname or "").lower()
+            priority_urls = list(dict.fromkeys(
+                str(result.url) for source in search_snapshots for result in source.results
+                if result.url.host == target_host
+            ))
+            snapshot = crawler.crawl(url, priority_urls=priority_urls)
+        else:
+            snapshot = crawler.crawl(url)
     except DNSResolutionError as exc:
         # Environmental failure is NOT a website flaw. Do not run LEGAL/GEO engines
         # on an empty snapshot and imply compliance or the absence of findings.
@@ -82,7 +96,7 @@ def run_audit(url: str, agents: list[str] | None = None, max_pages: int = 12,
             snapshot.crawl_notes.append(f"Optional browser probe failed: {type(exc).__name__}: {str(exc)[:150]}")
     findings = []
     for name in selected:
-        findings.extend((LegalAgent() if name == "legal" else GeoAgent(queries=queries)).run(snapshot))
+        findings.extend((LegalAgent() if name == "legal" else GeoAgent(queries=None if search_snapshots else queries)).run(snapshot))
     if with_browser and snapshot.browser_evidence and "legal" in selected:
         from .models import Finding, Evidence
         signal = snapshot.browser_evidence[0]
@@ -96,7 +110,13 @@ def run_audit(url: str, agents: list[str] | None = None, max_pages: int = 12,
         from .ai import ai_review
         findings.extend(ai_review(snapshot, selected, queries or []))
         methods.append("Opt-in external LLM review of selected PUBLIC page excerpts")
+    search_coverage = {}
+    if search_snapshots:
+        search_findings, search_coverage = compare_search(snapshot, search_snapshots)
+        findings.extend(search_findings)
+        methods.append("Organic search snapshot matched to the same URL in the crawled sample")
     coverage = {
+        **search_coverage,
         'scan_status': 'completed_sample_with_restrictions' if snapshot.access_diagnostics else 'completed_sample',
         'sampled_pages': len(snapshot.pages),
         'access_restrictions_detected': len(snapshot.access_diagnostics),

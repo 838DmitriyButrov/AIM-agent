@@ -20,7 +20,11 @@ def main(argv: list[str] | None = None) -> int:
     scan.add_argument("--max-pages", type=int, default=12, help="1..50 public HTML pages")
     scan.add_argument("--browser", action="store_true", help="Optional passive Playwright observation; Chromium required")
     scan.add_argument("--ai", action="store_true", help="Explicitly send selected public excerpts to OpenAI for advisory review")
-    scan.add_argument("--query", action="append", default=[], help="Target search question for AI analysis; repeatable")
+    scan.add_argument("--query", action="append", default=[], help="Search query for Yandex or text analysis; repeatable")
+    search = scan.add_mutually_exclusive_group()
+    search.add_argument("--serp-file", type=Path, help="Read a JSON snapshot of organic search results")
+    search.add_argument("--yandex-serp", action="store_true", help="Get up to five queries via the official Yandex Search API")
+    scan.add_argument("--serp-region", default="213", help="Yandex region ID (default: Moscow)")
     scan.add_argument("--out", type=Path, default=Path("reports/audit"), help="Output prefix for .json and .md files")
     args = parser.parse_args(argv)
     if args.command == "doctor":
@@ -40,8 +44,17 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if result["dns_status"] == "ok" and result["egress_status"] == "ok" else 2
     if args.command == "scan":
         try:
+            from .search_results import read_search_snapshots, yandex_snapshots
+
+            if (args.serp_file or args.yandex_serp) and args.agent and "geo" not in args.agent:
+                raise ValueError("Для режима выдачи выберите --agent geo.")
+            snapshots = None
+            if args.serp_file:
+                snapshots = read_search_snapshots(args.serp_file)
+            elif args.yandex_serp:
+                snapshots = yandex_snapshots(args.query, args.serp_region)
             report = run_audit(args.url, agents=args.agent, max_pages=args.max_pages, with_browser=args.browser,
-                               with_ai=args.ai, queries=args.query)
+                               with_ai=args.ai, queries=args.query, search_snapshots=snapshots)
             args.out.parent.mkdir(parents=True, exist_ok=True)
             json_path = Path(f"{args.out}.json")
             markdown_path = Path(f"{args.out}.md")

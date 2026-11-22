@@ -193,10 +193,11 @@ class SiteCrawler:
 
         raise ValueError("Too many redirects")
 
-    def crawl(self, target: str) -> SiteSnapshot:
+    def crawl(self, target: str, *, priority_urls: list[str] | None = None) -> SiteSnapshot:
         validate_public_url(target)
         start = strip_tracking(target)
-        original_host = urlparse(start).hostname or ""
+        start_url = urlparse(start)
+        original_host = start_url.hostname or ""
         bare = original_host.removeprefix("www.")
         allowed_hosts = {bare, f"www.{bare}"} if original_host in {bare, f"www.{bare}"} else {original_host}
         notes: list[str] = []
@@ -281,6 +282,11 @@ class SiteCrawler:
                         continue
                     page = parse_page(final, status, body, headers)
                     pages.append(page)
+                    if current == start and priority_urls:
+                        for candidate in priority_urls[:50]:
+                            candidate_url = urlparse(candidate)
+                            if (candidate_url.scheme, candidate_url.netloc) == (start_url.scheme, start_url.netloc):
+                                queue.append(strip_tracking(candidate))
                     for link in page.internal_links[:150]:
                         clean = strip_tracking(link)
                         if urlparse(clean).hostname in allowed_hosts and clean not in seen and len(queue) < 1000:
